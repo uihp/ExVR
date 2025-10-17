@@ -14,7 +14,6 @@ torchvision
 websockets
 Flask
 Werkzeug
-pyuac
 pywin32
 screeninfo
 joblib

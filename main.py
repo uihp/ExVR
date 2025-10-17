@@ -1,8 +1,4 @@
 import sys
-import pyuac
-if not pyuac.isUserAdmin():
-    pyuac.runAsAdmin()
-    sys.exit(0)
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -66,15 +62,26 @@ class VideoCaptureThread(QThread):
         self.fps = fps
 
     def run(self):
-        self.video_capture = cv2.VideoCapture(self.source, cv2.CAP_ANY)
-        self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        self.video_capture.set(cv2.CAP_PROP_FPS, self.fps)
-        print(self.video_capture.get(cv2.CAP_PROP_FRAME_WIDTH), self.video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT),self.video_capture.get(cv2.CAP_PROP_FPS))
-        self.video_capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        webrtc = False
+        try:
+            from rtcam import CameraThread
+            webrtc = type(self.source) is str and self.source.startswith('wss://')
+        except: pass
+        if webrtc:
+            self.camera = CameraThread(self.source)
+            self.camera.start()
+            get_frame = lambda:(bool(self.camera.frame), self.camera.frame.to_ndarray(format='bgr24') if self.camera.frame else None)
+        else:
+            self.video_capture = cv2.VideoCapture(self.source, cv2.CAP_ANY)
+            self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+            self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+            self.video_capture.set(cv2.CAP_PROP_FPS, self.fps)
+            print(self.video_capture.get(cv2.CAP_PROP_FRAME_WIDTH), self.video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT),self.video_capture.get(cv2.CAP_PROP_FPS))
+            self.video_capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            get_frame = self.video_capture.read
         while self.is_running:
-            ret, frame = self.video_capture.read()
-            if ret:
+            ready, frame = get_frame()
+            if ready:
                 rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 if g.config["Setting"]["camera_width"]<640 or g.config["Setting"]["camera_height"]<480:
                     rgb_image = cv2.resize(rgb_image, (g.config["Setting"]["camera_width"], g.config["Setting"]["camera_height"]))
@@ -100,6 +107,7 @@ class VideoCaptureThread(QThread):
                         rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888
                     )
                     self.frame_ready.emit(convert_to_Qt_format)
+            else: time.sleep(0.1)
         self.cleanup()
 
     def stop(self):
@@ -110,6 +118,7 @@ class VideoCaptureThread(QThread):
         if self.video_capture:
             self.video_capture.release()
             cv2.destroyAllWindows()
+        if self.camera: self.camera.stop(1)
 
 class VideoWindow(QMainWindow):
     def __init__(self):
@@ -681,7 +690,7 @@ class VideoWindow(QMainWindow):
             # Check all required paths
             required_paths = [vrcfacetracking_module_path] + [
                 os.path.join(steamvr_driver_path, driver)
-                for driver in ["vmt", "vrto3d"]
+                for driver in ["vrto3d"]
             ]
             if all(os.path.exists(path) for path in required_paths):
                 return True, steamvr_driver_path, vrcfacetracking_path, check_steamvr_path
@@ -739,7 +748,7 @@ class VideoWindow(QMainWindow):
             dll_path = os.path.join(vrcfacetracking_path, "VRCFT-MediapipePro.dll")
 
             error_occurred = False
-            drivers_to_remove = ["vmt", "vrto3d"]
+            drivers_to_remove = ["vrto3d"]
             for driver in drivers_to_remove:
                 dir_path = os.path.join(steamvr_driver_path, driver)
                 try:
@@ -762,7 +771,7 @@ class VideoWindow(QMainWindow):
             self.install_button.setStyleSheet("QPushButton { background-color: blue; color: white; }")
         else:
             # Install process
-            for driver in ["vmt", "vrto3d"]:
+            for driver in ["vrto3d"]:
                 source = os.path.join("./drivers", driver)
                 destination = os.path.join(steamvr_driver_path, driver)
                 if not os.path.exists(destination):

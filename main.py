@@ -15,10 +15,10 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QDialog,
     QScrollArea,
-    QGridLayout, QSizePolicy
+    QGridLayout
 )
 from PySide6.QtCore import QThread, Qt
-from PySide6.QtGui import QImage, QPixmap, QDoubleValidator
+from PySide6.QtGui import QDoubleValidator
 import winreg, shutil
 import cv2
 import utils.tracking
@@ -40,77 +40,38 @@ warnings.filterwarnings("ignore")
 
 
 class VideoCaptureThread(QThread):
-    def __init__(self, source,width=640, height=480, fps=60):
+    def __init__(self):
         super().__init__()
-        self.source = source
-        self.video_capture = None
         self.is_running = True
-        self.show_image = False
         self.tracker = utils.tracking.Tracker()
-        if width < 640 or height < 480:
-            aspect_ratio = width / height
-            if aspect_ratio == 1280 / 720:
-                self.width, self.height = 1280, 720
-            elif aspect_ratio == 640 / 480:
-                self.width, self.height = 640, 480
-            else:
-                self.width, self.height = width, height
-        else:
-            self.width, self.height = width, height
-        self.fps = fps
-
     def run(self):
-        webrtc = False
-        try:
-            from rtcam import CameraThread
-            webrtc = type(self.source) is str and self.source.startswith('wss://')
-        except: pass
-        if webrtc:
-            self.camera = CameraThread(self.source)
-            self.camera.start()
-            get_frame = lambda:(bool(self.camera.frame), self.camera.frame.to_ndarray(format='bgr24') if self.camera.frame else None)
-        else:
-            self.video_capture = cv2.VideoCapture(self.source, cv2.CAP_ANY)
-            self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-            self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-            self.video_capture.set(cv2.CAP_PROP_FPS, self.fps)
-            print(self.video_capture.get(cv2.CAP_PROP_FRAME_WIDTH), self.video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT),self.video_capture.get(cv2.CAP_PROP_FPS))
-            self.video_capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            get_frame = self.video_capture.read
+        from rtcam import CameraThread
+        self.camera = CameraThread(g.config["Setting"]["camera_ip"])
+        self.camera.start()
         while self.is_running:
-            ready, frame = get_frame()
-            if ready:
-                rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                if g.config["Setting"]["camera_width"]<640 or g.config["Setting"]["camera_height"]<480:
-                    rgb_image = cv2.resize(rgb_image, (g.config["Setting"]["camera_width"], g.config["Setting"]["camera_height"]))
-                if g.config["Setting"]["flip_x"]:
-                    rgb_image = cv2.flip(rgb_image, 1)
-                if g.config["Setting"]["flip_y"]:
-                    rgb_image = cv2.flip(rgb_image, 0)
-
-                self.tracker.process_frames(rgb_image)
-                if g.config["Tracking"]["Head"]["enable"] or g.config["Tracking"]["Face"]["enable"]:
-                    rgb_image = draw_face_landmarks(rgb_image)
-                if g.config["Tracking"]["Tongue"]["enable"]:
-                    rgb_image = draw_tongue_position(rgb_image)
-                if g.config["Tracking"]["Pose"]["enable"]:
-                    rgb_image = draw_pose_landmarks(rgb_image)
-                if g.config["Tracking"]["Hand"]["enable"]:
-                    rgb_image = draw_hand_landmarks(rgb_image)
-                cv2.imshow('Camera View', cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR))
-                cv2.waitKey(1)
-            else: time.sleep(0.1)
-        self.cleanup()
-
+            while self.camera.frame is None: time.sleep(0.1)
+            rgb_image = self.camera.frame.to_ndarray(format='rgb24')
+            if g.config["Setting"]["camera_width"]<640 or g.config["Setting"]["camera_height"]<480:
+                rgb_image = cv2.resize(rgb_image, (g.config["Setting"]["camera_width"], g.config["Setting"]["camera_height"]))
+            if g.config["Setting"]["flip_x"]:
+                rgb_image = cv2.flip(rgb_image, 1)
+            if g.config["Setting"]["flip_y"]:
+                rgb_image = cv2.flip(rgb_image, 0)
+            self.tracker.process_frames(rgb_image)
+            if g.config["Tracking"]["Head"]["enable"] or g.config["Tracking"]["Face"]["enable"]:
+                rgb_image = draw_face_landmarks(rgb_image)
+            if g.config["Tracking"]["Tongue"]["enable"]:
+                rgb_image = draw_tongue_position(rgb_image)
+            if g.config["Tracking"]["Pose"]["enable"]:
+                rgb_image = draw_pose_landmarks(rgb_image)
+            if g.config["Tracking"]["Hand"]["enable"]:
+                rgb_image = draw_hand_landmarks(rgb_image)
+            cv2.imshow('Camera View', cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR))
+            cv2.waitKey(1)
+        self.camera.stop()
     def stop(self):
         self.is_running = False
         self.tracker.stop()
-
-    def cleanup(self):
-        if self.video_capture:
-            self.video_capture.release()
-            cv2.destroyAllWindows()
-        if self.camera: self.camera.stop()
 
 class VideoWindow(QMainWindow):
     def __init__(self):
@@ -151,20 +112,6 @@ class VideoWindow(QMainWindow):
         # use .get() to avoid KeyError with old config
         self.ip_camera_url_input.setText(g.config["Setting"].get("camera_ip", ""))
         layout.addWidget(self.ip_camera_url_input)
-
-        camera_layout = QHBoxLayout()
-        self.camera_selection = QComboBox(self)
-        self.populate_camera_list()
-        camera_layout.addWidget(self.camera_selection)
-        self.camera_resolution_selection = QComboBox(self)
-        self.populate_resolution_list()
-        self.camera_resolution_selection.currentIndexChanged.connect(self.update_camera_resolution)
-        camera_layout.addWidget(self.camera_resolution_selection)
-        self.camera_fps_selection = QComboBox(self)
-        self.populate_fps_list()
-        self.camera_fps_selection.currentIndexChanged.connect(self.update_camera_fps)
-        camera_layout.addWidget(self.camera_fps_selection)
-        layout.addLayout(camera_layout)
 
         self.priority_selection = QComboBox(self)
         self.priority_selection.addItems(["IDLE_PRIORITY_CLASS", "BELOW_NORMAL_PRIORITY_CLASS", "NORMAL_PRIORITY_CLASS", "ABOVE_NORMAL_PRIORITY_CLASS", "HIGH_PRIORITY_CLASS", "REALTIME_PRIORITY_CLASS"])
@@ -357,10 +304,6 @@ class VideoWindow(QMainWindow):
 
 
         separator_2 = QFrame(self)
-        separator_2.setFrameShape(
-            QFrame.HLine
-        )  # Set the frame to be a horizontal line
-        separator_2.setFrameShadow(QFrame.Sunken)  # Give it a sunken shadow effect
         layout.addWidget(separator_2)
         mouse_layout = QHBoxLayout()
         self.mouse_checkbox = QCheckBox("Mouse", self)
@@ -392,10 +335,6 @@ class VideoWindow(QMainWindow):
         layout.addLayout(mouse_layout)
 
         separator_3 = QFrame(self)
-        separator_3.setFrameShape(
-            QFrame.HLine
-        )  # Set the frame to be a horizontal line
-        separator_3.setFrameShadow(QFrame.Sunken)  # Give it a sunken shadow effect
         layout.addWidget(separator_3)
 
         config_layout = QHBoxLayout()
@@ -761,8 +700,6 @@ class VideoWindow(QMainWindow):
     def toggle_camera(self):
         self.update_checkboxes()
         self.update_sliders()
-        self.update_camera_resolution()
-        self.update_camera_fps()
         if self.video_thread and self.video_thread.isRunning():
             stop_hotkeys()
             self.toggle_button.setText("Start Tracking")
@@ -776,103 +713,14 @@ class VideoWindow(QMainWindow):
             self.toggle_button.setStyleSheet(
                 "QPushButton { background-color: red; color: white; }"
             )
-            ip_camera_url = g.config["Setting"]["camera_ip"]
-            selected_camera_name = self.camera_selection.currentText()
-            source = (
-                ip_camera_url
-                if ip_camera_url != ""
-                else self.get_camera_source(selected_camera_name)
-            )
-            self.video_thread = VideoCaptureThread(source,g.config["Setting"]["camera_width"],g.config["Setting"]["camera_height"],g.config["Setting"]["camera_fps"])
+            self.video_thread = VideoCaptureThread()
             self.video_thread.start()
-
             # controller
             self.controller_thread = ControllerApp()
             self.controller_thread.start()
 
-    def get_camera_source(self, selected_camera_name):
-        devices = enumerate_cameras(cv2.CAP_ANY)
-        for device in devices:
-            if device.index > 1000:
-                device.name += " (MSMF)"
-            else:
-                device.name += " (DSHOW)"
-        for device in devices:
-            if device.name == selected_camera_name:
-                return device.index
-        return 0
-
-    def populate_camera_list(self):
-        devices = enumerate_cameras(cv2.CAP_ANY)
-        dshow_devices = []
-        msmf_devices = []
-        for device in devices:
-            if device.index > 1000:
-                device.name += " (MSMF)"
-                msmf_devices.append(device)
-            else:
-                device.name += " (DSHOW)"
-                dshow_devices.append(device)
-        for device in msmf_devices + dshow_devices:
-            self.camera_selection.addItem(device.name)
-
-    def populate_resolution_list(self):
-        resolutions = [
-            (160, 90),
-            (160, 120),
-            (320, 180),
-            (320, 240),
-            (640, 360),
-            (640, 480),
-            (800, 450),
-            (800, 600),
-            (1280, 720),
-            (1920, 1080),
-            (2560, 1440),
-            (3840, 2160)
-        ]
-        for width, height in resolutions:
-            gcd = np.gcd(width, height)
-            aspect_ratio = f"{width // gcd}:{height // gcd}"
-            self.camera_resolution_selection.addItem(f"{width} x {height} ({aspect_ratio})", (width, height))
-        config_width = int(g.config["Setting"]["camera_width"])
-        config_height = int(g.config["Setting"]["camera_height"])
-        config_resolution = (config_width, config_height)
-        if config_resolution in resolutions:
-            index = resolutions.index(config_resolution)
-            self.camera_resolution_selection.setCurrentIndex(index)
-        else:
-            self.camera_resolution_selection.setCurrentIndex(0)
-
-    def populate_fps_list(self):
-        fps_list = [30,60]
-        for fps in fps_list:
-            self.camera_fps_selection.addItem(f"{fps} FPS")
-        config_fps = int(g.config["Setting"]["camera_fps"])
-        if config_fps in fps_list:
-            index = fps_list.index(config_fps)
-            self.camera_fps_selection.setCurrentIndex(index)
-        else:
-            self.camera_fps_selection.setCurrentIndex(0)
-
-    def update_camera_resolution(self):
-        # Get the currently selected resolution
-        current_resolution = self.camera_resolution_selection.currentData()
-        if current_resolution:
-            width, height = current_resolution
-            g.config["Setting"]["camera_width"] = width
-            g.config["Setting"]["camera_height"] = height
-            print(f"Resolution updated to: {width} x {height}")
-
-    def update_camera_fps(self):
-        # Get the currently selected resolution
-        current_fps = self.camera_fps_selection.currentData()
-        if current_fps:
-            g.config["Setting"]["camera_fps"] = current_fps
-            print(f"FPS updated to: {current_fps}")
-
     def update_camera_ip(self, value):
-        g.config["Setting"]["camera_ip"] = value 
+        g.config["Setting"]["camera_ip"] = value
 
     def thread_stopped(self):
         if self.video_thread:

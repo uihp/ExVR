@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QGridLayout, QSizePolicy
 )
-from PySide6.QtCore import QThread, Signal, Qt
+from PySide6.QtCore import QThread, Qt
 from PySide6.QtGui import QImage, QPixmap, QDoubleValidator
 import winreg, shutil
 import cv2
@@ -40,8 +40,6 @@ warnings.filterwarnings("ignore")
 
 
 class VideoCaptureThread(QThread):
-    frame_ready = Signal(QImage)
-
     def __init__(self, source,width=640, height=480, fps=60):
         super().__init__()
         self.source = source
@@ -91,22 +89,16 @@ class VideoCaptureThread(QThread):
                     rgb_image = cv2.flip(rgb_image, 0)
 
                 self.tracker.process_frames(rgb_image)
-                if self.show_image:
-                    if g.config["Tracking"]["Head"]["enable"] or g.config["Tracking"]["Face"]["enable"]:
-                        rgb_image = draw_face_landmarks(rgb_image)
-                    if g.config["Tracking"]["Tongue"]["enable"]:
-                        rgb_image = draw_tongue_position(rgb_image)
-                    if g.config["Tracking"]["Pose"]["enable"]:
-                        rgb_image = draw_pose_landmarks(rgb_image)
-                    if g.config["Tracking"]["Hand"]["enable"]:
-                        rgb_image = draw_hand_landmarks(rgb_image)
-                    rgb_image = cv2.resize(rgb_image, (640, 480))
-                    h, w, ch = rgb_image.shape
-                    bytes_per_line = ch * w
-                    convert_to_Qt_format = QImage(
-                        rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888
-                    )
-                    self.frame_ready.emit(convert_to_Qt_format)
+                if g.config["Tracking"]["Head"]["enable"] or g.config["Tracking"]["Face"]["enable"]:
+                    rgb_image = draw_face_landmarks(rgb_image)
+                if g.config["Tracking"]["Tongue"]["enable"]:
+                    rgb_image = draw_tongue_position(rgb_image)
+                if g.config["Tracking"]["Pose"]["enable"]:
+                    rgb_image = draw_pose_landmarks(rgb_image)
+                if g.config["Tracking"]["Hand"]["enable"]:
+                    rgb_image = draw_hand_landmarks(rgb_image)
+                cv2.imshow('Camera View', cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR))
+                cv2.waitKey(1)
             else: time.sleep(0.1)
         self.cleanup()
 
@@ -118,7 +110,7 @@ class VideoCaptureThread(QThread):
         if self.video_capture:
             self.video_capture.release()
             cv2.destroyAllWindows()
-        if self.camera: self.camera.stop(1)
+        if self.camera: self.camera.stop()
 
 class VideoWindow(QMainWindow):
     def __init__(self):
@@ -128,34 +120,18 @@ class VideoWindow(QMainWindow):
         self.width = int(screen_size.width() * 0.3)
         self.height = int(screen_size.height() * 0.65)
         self.half_height = int(self.height / 2)
-
         # self.setAttribute(Qt.WA_TranslucentBackground)
         # self.setAttribute(Qt.WA_NoSystemBackground, False)
         # self.setAttribute(Qt.WA_PaintOnScreen)
         version=g.config["Version"]
-        self.setWindowTitle(
-            f"ExVR {version} - Experience Virtual Reality"
-        )
-        # self.setFixedSize(width, height)
-        self.resize(self.width, self.height)
+        self.setWindowTitle(f"ExVR {version} - Experience Virtual Reality")
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
-        self.image_label = QLabel(self)
-        layout.addWidget(self.image_label)
-        self.setMinimumSize(600, 800)
-        self.image_label.setSizePolicy(
-            QSizePolicy.Expanding,
-            QSizePolicy.Expanding
-        )
 
-        top_right_layout = QHBoxLayout()
-        top_right_layout.addStretch()
         self.steamvr_status_label = QLabel(self)
-        top_right_layout.addWidget(self.steamvr_status_label)
-        layout.insertLayout(0, top_right_layout)
-
+        layout.insertWidget(0, self.steamvr_status_label)
 
         flip_layout = QHBoxLayout()  # Create a QHBoxLayout for new reset buttons
         self.flip_x_checkbox = QCheckBox("Flip X", self)
@@ -220,10 +196,6 @@ class VideoWindow(QMainWindow):
         )
         self.toggle_button.clicked.connect(self.toggle_camera)
         layout.addWidget(self.toggle_button)
-
-        self.show_frame_button = QPushButton("Show Frame", self)
-        self.show_frame_button.clicked.connect(self.toggle_video_display)
-        layout.addWidget(self.show_frame_button)
 
         only_ingame_layout = QHBoxLayout()
         self.only_ingame_checkbox = QCheckBox("Only Ingame", self)
@@ -812,27 +784,11 @@ class VideoWindow(QMainWindow):
                 else self.get_camera_source(selected_camera_name)
             )
             self.video_thread = VideoCaptureThread(source,g.config["Setting"]["camera_width"],g.config["Setting"]["camera_height"],g.config["Setting"]["camera_fps"])
-            self.video_thread.frame_ready.connect(self.update_frame)
             self.video_thread.start()
 
             # controller
             self.controller_thread = ControllerApp()
             self.controller_thread.start()
-
-
-        self.show_frame_button.setText("Show Frame")
-
-    def toggle_video_display(self):
-        if self.video_thread:
-            if self.video_thread.show_image:
-                self.video_thread.show_image = False
-                self.show_frame_button.setText("Show Frame")
-            else:
-                self.video_thread.show_image = True
-                self.show_frame_button.setText("Hide Frame")
-        else:
-            self.show_frame_button.setText("Show Frame")
-        self.image_label.setPixmap(QPixmap())
 
     def get_camera_source(self, selected_camera_name):
         devices = enumerate_cameras(cv2.CAP_ANY)
@@ -845,20 +801,6 @@ class VideoWindow(QMainWindow):
             if device.name == selected_camera_name:
                 return device.index
         return 0
-
-    def update_frame(self, image):
-        if self.video_thread and self.video_thread.show_image:
-            target_width = self.image_label.width()
-            target_height = self.image_label.height()
-
-            scaled_image = image.scaled(
-                target_width,
-                target_height,
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
-            )
-            self.image_label.setPixmap(QPixmap.fromImage(scaled_image))
-            self.image_label.setAlignment(Qt.AlignCenter)
 
     def populate_camera_list(self):
         devices = enumerate_cameras(cv2.CAP_ANY)
@@ -941,7 +883,6 @@ class VideoWindow(QMainWindow):
             self.controller_thread.stop()
             self.controller_thread.wait()
             self.controller_thread = None
-        self.image_label.setPixmap(QPixmap())
 
     def closeEvent(self, event):
         self.thread_stopped()

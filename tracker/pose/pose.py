@@ -17,7 +17,7 @@ def pose_pred_handling(detection_result):
             left_hand_position[1] *= g.config["Tracking"]["Hand"]["y_scalar"]
             left_hand_position[1] += g.config["Tracking"]["Pose"]["shift_l_y"]
 
-            if g.config["Smoothing"]["enable"]:
+            if g.smoothing_enabled:
                 g.latest_data[70] = left_hand_position[0]
                 g.latest_data[71] = left_hand_position[1]
             else:
@@ -29,7 +29,7 @@ def pose_pred_handling(detection_result):
             right_hand_position[0] *= g.config["Tracking"]["Hand"]["x_scalar"]
             right_hand_position[1] *= g.config["Tracking"]["Hand"]["y_scalar"]
             right_hand_position[1] += g.config["Tracking"]["Pose"]["shift_r_y"]
-            if g.config["Smoothing"]["enable"]:
+            if g.smoothing_enabled:
                 g.latest_data[76] = right_hand_position[0]
                 g.latest_data[77] = right_hand_position[1]
             else:

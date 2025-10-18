@@ -130,7 +130,7 @@ def apply_smoothing():
     last_time = time.perf_counter()
     frame_duration = 1.0 / 1000.0  # 1 kHz worker loop
 
-    while not g.stop_event.is_set() and g.config["Smoothing"]["enable"]:
+    while not g.stop_event.is_set() and g.smoothing_enabled:
         now = time.perf_counter()
         dt_base = now - last_time  # seconds since previous iteration
 

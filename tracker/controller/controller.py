@@ -213,7 +213,7 @@ class ControllerApp(QThread):
             self.websocket_clients.remove(websocket)
 
     def update_controller_data(self, hand_name, hand_position, wrist_rot, finger_states):
-        if g.config["Smoothing"]["enable"]:
+        if g.smoothing_enabled:
             index_offset = 92 if hand_name == "Left" else 98
             finger_offset = 104 if hand_name == "Left" else 109
             g.latest_data[index_offset] = hand_position[0]

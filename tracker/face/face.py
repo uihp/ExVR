@@ -92,7 +92,7 @@ def face_pred_handling(detection_result, output_image, timestamp_ms, tongue_mode
 
         if not coverage_ratio > g.config["Tracking"]["Face"]["face_block_threshold"]:
             for i in range(len(detection_result.face_blendshapes[0])):
-                if g.config["Smoothing"]["enable"]:
+                if g.smoothing_enabled:
                     g.latest_data[i] = detection_result.face_blendshapes[0][i].score
                 else:
                     g.data["BlendShapes"][i]["v"] = detection_result.face_blendshapes[0][i].score
@@ -155,7 +155,7 @@ def face_pred_handling(detection_result, output_image, timestamp_ms, tongue_mode
         head_rotation=np.array([rotation_yaw, rotation_pitch,rotation_roll])
 
         # Update g.latest_data or data directly
-        if g.config["Smoothing"]["enable"]:
+        if g.smoothing_enabled:
             if not coverage_ratio > g.config["Tracking"]["Face"]["face_block_threshold"]:
                 # Head Blendshape
                 g.latest_data[53] = 0.0

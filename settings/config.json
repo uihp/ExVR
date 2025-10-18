@@ -1,31 +1,10 @@
 {
-    "Version": "0.7.2.3",
-    "Setting": {
-        "priority": "ABOVE_NORMAL_PRIORITY_CLASS",
-        "flip_x": false,
-        "flip_y": false,
-        "camera_width": 640,
-        "camera_height": 480,
-        "camera_fps": 60,
-        "camera_ip": "",
-        "only_ingame": false,
-        "only_ingame_game": ""
-    },
-    "Hotkey": {
-        "enable": true
-    },
     "Mouse": {
         "enable": true,
         "scalar_x": 200.0,
         "scalar_y": 150.0,
         "bound_threshold": 0.48,
         "dx": 0.15
-    },
-    "Sending": {
-        "address": "127.0.0.1"
-    },
-    "Smoothing": {
-        "enable": true
     },
     "Controller": {
         "send_interval": 30,

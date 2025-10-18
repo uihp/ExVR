@@ -3,7 +3,7 @@ from pythonosc import udp_client
 import utils.globals as g
 
 def setup_controller():
-    controller = GloveControllerSender(osc_ip=g.config["Sending"]["address"], osc_port=39570)
+    controller = GloveControllerSender(osc_ip='127.0.0.1', osc_port=39570)
     return controller
 
 # Define a simple Transform class to hold position and rotation data

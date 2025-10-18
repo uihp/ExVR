@@ -25,22 +25,17 @@ class Tracker:
             g.pose_detector = initialize_pose()
 
         # Start data send thread
-        self.data_thread = threading.Thread(
-            target=data_send_thread, args=(g.config["Sending"]["address"],), daemon=True
-        )
+        self.data_thread = threading.Thread(target=data_send_thread, daemon=True)
         self.data_thread.start()
 
-        # Start smoothing thread if enabled
-        self.smoothing_thread=None
-        if g.config["Smoothing"]["enable"]:
-            self.smoothing_thread = threading.Thread(target=apply_smoothing, daemon=True)
-            self.smoothing_thread.start()
+        self.smoothing_thread = threading.Thread(target=apply_smoothing, daemon=True)
+        self.smoothing_thread.start()
 
     def restart_smoothing(self):
         print("restart smoothing")
         if self.smoothing_thread:
             self.smoothing_thread.join()
-        if g.config["Smoothing"]["enable"]:
+        if g.smoothing_enabled:
             self.smoothing_thread = threading.Thread(target=apply_smoothing, daemon=True)
             self.smoothing_thread.start()
 

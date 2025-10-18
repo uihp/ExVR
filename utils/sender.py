@@ -178,18 +178,16 @@ def send_mouse_position(data, default_data):
             prev_x = x
             prev_y = y
 
-def data_send_thread(target_ip):
+def data_send_thread():
     frame_duration = 1.0 / 60.0
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    while not g.stop_event.is_set():
-        if g.config['Mouse']["enable"]:
-            send_mouse_position(g.data, g.default_data)
+    while g.running:
         if g.config["Tracking"]["Head"]["enable"] or g.config["Mouse"]["enable"]:
             packed_hmd_data = pack_hmd_data(g.data, g.default_data)
-            sock.sendto(packed_hmd_data, (target_ip, 4242))
+            sock.sendto(packed_hmd_data, ('127.0.0.1', 4242))
         if g.config["Tracking"]["Face"]["enable"]:
             packed_data = pack_data(g.data, g.default_data)
-            sock.sendto(packed_data, (target_ip, 11111))
+            sock.sendto(packed_data, ('127.0.0.1', 11111))
         if g.config["Tracking"]["Hand"]["enable"] or g.config["Tracking"]["LeftController"]["enable"] or g.config["Tracking"]["RightController"]["enable"]:
             handling_hand_data(g.data, g.default_data)
             g.controller.update()

@@ -27,13 +27,25 @@ from ctypes import windll
 import utils.globals as g
 from utils.actions import *
 import utils.tracking
-from utils.data import setup_data,save_data
-from utils.hotkeys import stop_hotkeys, apply_hotkeys
+from utils.data import setup_data, save_data
 from tracker.controller.controller import *
 from tracker.face.face import draw_face_landmarks
 from tracker.face.tongue import draw_tongue_position
 from tracker.hand.hand import draw_hand_landmarks
 from tracker.pose.pose import draw_pose_landmarks
+
+class settings:
+    camera_url = 'wss://192.168.31.150:5000/browsercam/signal'
+    flip_x = False
+    flip_y = False
+    head_enable = True
+    face_enable = True
+    tougue_enable = True
+    pose_enable = True
+    hand_enable = True
+    priority = 'ABOVE_NORMAL_PRIORITY_CLASS'
+    @classmethod
+    def toggle(cls, key): setattr(cls, key, not getattr(cls, key))
 
 class VideoCaptureThread(QThread):
     def __init__(self):
@@ -42,17 +54,13 @@ class VideoCaptureThread(QThread):
         self.tracker = utils.tracking.Tracker()
     def run(self):
         from rtcam import CameraThread
-        self.camera = CameraThread(g.config['Setting']['camera_ip'])
+        self.camera = CameraThread(settings.camera_url)
         self.camera.start()
         while self.is_running:
             while self.camera.frame is None: time.sleep(0.1)
             rgb_image = self.camera.frame.to_ndarray(format='rgb24')
-            if g.config['Setting']['camera_width']<640 or g.config['Setting']['camera_height']<480:
-                rgb_image = cv2.resize(rgb_image, (g.config['Setting']['camera_width'], g.config['Setting']['camera_height']))
-            if g.config['Setting']['flip_x']:
-                rgb_image = cv2.flip(rgb_image, 1)
-            if g.config['Setting']['flip_y']:
-                rgb_image = cv2.flip(rgb_image, 0)
+            if settings.flip_x: rgb_image = cv2.flip(rgb_image, 1)
+            if settings.flip_y: rgb_image = cv2.flip(rgb_image, 0)
             self.tracker.process_frames(rgb_image)
             if g.config['Tracking']['Head']['enable'] or g.config['Tracking']['Face']['enable']:
                 rgb_image = draw_face_landmarks(rgb_image)
@@ -72,14 +80,7 @@ class VideoCaptureThread(QThread):
 class VideoWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        screen = QApplication.screens()[0]
-        screen_size = screen.size()
-        self.width = int(screen_size.width() * 0.3)
-        self.height = int(screen_size.height() * 0.65)
-        self.half_height = int(self.height / 2)
-
-        version=g.config['Version']
-        self.setWindowTitle(f'ExVR {version} - Experience Virtual Reality')
+        self.setWindowTitle(f'ExVR - Experience Virtual Reality')
 
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
@@ -88,30 +89,28 @@ class VideoWindow(QMainWindow):
         self.steamvr_status_label = QLabel(self)
         layout.insertWidget(0, self.steamvr_status_label)
 
-        flip_layout = QHBoxLayout()  # Create a QHBoxLayout for new reset buttons
+        flip_layout = QHBoxLayout()
         self.flip_x_checkbox = QCheckBox('Flip X', self)
-        self.flip_x_checkbox.clicked.connect(self.flip_x)
-        self.flip_x_checkbox.setChecked(g.config['Setting']['flip_x'])
+        self.flip_x_checkbox.clicked.connect(lambda:settings.toggle('flip_x'))
+        self.flip_x_checkbox.setChecked(settings.flip_x)
         flip_layout.addWidget(self.flip_x_checkbox)
-
         self.flip_y_checkbox = QCheckBox('Flip Y', self)
-        self.flip_y_checkbox.clicked.connect(self.flip_y)
-        self.flip_y_checkbox.setChecked(g.config['Setting']['flip_y'])
+        self.flip_y_checkbox.clicked.connect(lambda:settings.toggle('flip_y'))
+        self.flip_y_checkbox.setChecked(settings.flip_y)
         flip_layout.addWidget(self.flip_y_checkbox)
         layout.addLayout(flip_layout)
 
-        self.ip_camera_url_input = QLineEdit(self)
-        self.ip_camera_url_input.setPlaceholderText('Enter IP camera URL')
-        self.ip_camera_url_input.textChanged.connect(self.update_camera_ip)
-        # use .get() to avoid KeyError with old config
-        self.ip_camera_url_input.setText(g.config['Setting'].get('camera_ip', ''))
-        layout.addWidget(self.ip_camera_url_input)
+        self.camera_url_input = QLineEdit(self)
+        self.camera_url_input.setPlaceholderText('Enter WebRTC camera URL')
+        self.camera_url_input.textChanged.connect(lambda val:setattr(settings, 'camera_url', val))
+        self.camera_url_input.setText(settings.camera_url)
+        layout.addWidget(self.camera_url_input)
 
         self.priority_selection = QComboBox(self)
         self.priority_selection.addItems(['IDLE_PRIORITY_CLASS', 'BELOW_NORMAL_PRIORITY_CLASS', 'NORMAL_PRIORITY_CLASS', 'ABOVE_NORMAL_PRIORITY_CLASS', 'HIGH_PRIORITY_CLASS', 'REALTIME_PRIORITY_CLASS'])
         self.priority_selection.currentIndexChanged.connect(self.set_process_priority)
         layout.addWidget(self.priority_selection)
-        self.priority_selection.setCurrentIndex(self.priority_selection.findText(g.config['Setting']['priority']))
+        self.priority_selection.setCurrentIndex(self.priority_selection.findText(settings.priority))
 
         self.install_state, steamvr_driver_path, vrcfacetracking_path, check_steamvr_path = self.install_checking()
         if check_steamvr_path is not None:
@@ -137,12 +136,12 @@ class VideoWindow(QMainWindow):
         only_ingame_layout = QHBoxLayout()
         self.only_ingame_checkbox = QCheckBox('Only Ingame', self)
         self.only_ingame_checkbox.clicked.connect(lambda: self.toggle_only_in_game(self.only_ingame_checkbox.isChecked()))
-        self.only_ingame_checkbox.setChecked(g.config['Setting']['only_ingame'])
+        self.only_ingame_checkbox.setChecked(g.only_ingame)
         self.only_ingame_checkbox.setToolTip('Currently this only applies to hotkeys and mouse input and not head movement')
         self.only_ingame_game_input = QLineEdit(self)
         self.only_ingame_game_input.setPlaceholderText('window title / process name / VRChat, VRChat.exe, javaw.exe')
-        self.only_ingame_game_input.textChanged.connect(self.update_mouse_only_in_game_name)
-        self.only_ingame_game_input.setText(g.config['Setting']['only_ingame_game'])
+        self.only_ingame_game_input.textChanged.connect(lambda val:setattr(g, 'only_ingame_game', val))
+        self.only_ingame_game_input.setText(g.only_ingame_game)
         only_ingame_layout.addWidget(self.only_ingame_checkbox)
         only_ingame_layout.addWidget(self.only_ingame_game_input)
         layout.addLayout(only_ingame_layout)
@@ -294,12 +293,6 @@ class VideoWindow(QMainWindow):
         layout.addWidget(separator_3)
 
         config_layout = QHBoxLayout()
-        self.reset_hotkey_button = QPushButton('Reset Hotkey', self)
-        self.reset_hotkey_button.clicked.connect(self.reset_hotkeys)
-        config_layout.addWidget(self.reset_hotkey_button)
-        self.stop_hotkey_button = QPushButton('Stop Hotkey', self)
-        self.stop_hotkey_button.clicked.connect(stop_hotkeys)
-        config_layout.addWidget(self.stop_hotkey_button)
         self.set_face_button = QPushButton('Set Face', self)
         self.set_face_button.clicked.connect(self.face_dialog)
         config_layout.addWidget(self.set_face_button)
@@ -384,17 +377,9 @@ class VideoWindow(QMainWindow):
         self.save_config_button.clicked.connect(self.save_data)
         layout.addWidget(self.save_config_button)
         self.dialog.exec_()
-    def flip_x(self, value):
-        g.config['Setting']['flip_x'] = value
-    def flip_y(self, value):
-        g.config['Setting']['flip_y'] = value
-    def set_hand_front(self, value):
-        g.config['Tracking']['Hand']['only_front'] = value
-    def set_face_block(self, value):
-        g.config['Tracking']['Face']['block'] = value
     def update_checkboxes(self):
-        self.flip_x_checkbox.setChecked(g.config['Setting']['flip_x'])
-        self.flip_y_checkbox.setChecked(g.config['Setting']['flip_y'])
+        self.flip_x_checkbox.setChecked(settings.flip_x)
+        self.flip_y_checkbox.setChecked(settings.flip_y)
         self.checkbox1.setChecked(g.config['Tracking']['Head']['enable'])
         self.checkbox2.setChecked(g.config['Tracking']['Face']['enable'])
         self.checkbox3.setChecked(g.config['Tracking']['Tongue']['enable'])
@@ -484,16 +469,6 @@ class VideoWindow(QMainWindow):
             g.controller.left_hand.force_enable = value
         if key == 'RightController':
             g.controller.right_hand.force_enable = value
-    def toggle_mouse(self, value):
-        g.config['Mouse']['enable'] = value
-    def toggle_only_in_game(self, value):
-        g.config['Setting']['only_ingame'] = value
-    def update_mouse_only_in_game_name(self, value):
-        g.config['Setting']['only_ingame_game'] = value
-    def toggle_hand_down(self, value):
-        g.config['Tracking']['Hand']['enable_hand_down'] = value
-    def toggle_finger_action(self, value):
-        g.config['Tracking']['Hand']['enable_finger_action'] = value
     def install_checking(self):
         # Open registry key to get Steam installation path
         try:
@@ -543,7 +518,7 @@ class VideoWindow(QMainWindow):
         success = windll.kernel32.SetPriorityClass(handle, priority_class)
         windll.kernel32.CloseHandle(handle)
         print('Finished setting priority')
-        g.config['Setting']['priority'] = priority_key
+        settings.priority = priority_key
     def display_message(self,title,message,style=''):
         msg_box = QMessageBox()
         msg_box.setIcon(QMessageBox.Critical)
@@ -605,12 +580,10 @@ class VideoWindow(QMainWindow):
         self.update_checkboxes()
         self.update_sliders()
         if self.video_thread and self.video_thread.isRunning():
-            stop_hotkeys()
             self.toggle_button.setText('Start Tracking')
             self.toggle_button.setStyleSheet('QPushButton { background-color: green; color: white; }')
             self.thread_stopped()
         else:
-            apply_hotkeys()
             self.toggle_button.setText('Stop Tracking')
             self.toggle_button.setStyleSheet('QPushButton { background-color: red; color: white; }')
             self.video_thread = VideoCaptureThread()
@@ -618,8 +591,6 @@ class VideoWindow(QMainWindow):
             # controller
             self.controller_thread = ControllerApp()
             self.controller_thread.start()
-    def update_camera_ip(self, value):
-        g.config['Setting']['camera_ip'] = value
     def thread_stopped(self):
         if self.video_thread:
             self.video_thread.stop()

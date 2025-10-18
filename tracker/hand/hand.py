@@ -304,7 +304,7 @@ def hand_pred_handling(detection_result):
                 finger_0, finger_1, finger_2, finger_3, finger_4 = 1.0, 1.0, 1.0, 1.0, 1.0
 
             if hand_name == "Left":
-                if g.config["Smoothing"]["enable"]:
+                if g.smoothing_enabled:
                     if rotation_change_flag:
                         g.latest_data[73] = wrist_rot[0]
                         g.latest_data[74] = wrist_rot[1]
@@ -338,7 +338,7 @@ def hand_pred_handling(detection_result):
                     g.data["LeftHandFinger"][4]["v"] = finger_4
                 g.controller.left_hand.enable = True
             else:
-                if g.config["Smoothing"]["enable"]:
+                if g.smoothing_enabled:
                     if rotation_change_flag:
                         g.latest_data[79] = wrist_rot[0]
                         g.latest_data[80] = wrist_rot[1]
@@ -375,7 +375,7 @@ def hand_pred_handling(detection_result):
     if hand_detection_counts["Left"] <= g.config["Tracking"]["Hand"]["hand_detection_lower_threshold"] and \
             g.config["Tracking"]["Hand"]["enable_hand_auto_reset"] and not g.config["Tracking"]["LeftController"][
         "enable"]:
-        if g.config["Smoothing"]["enable"]:
+        if g.smoothing_enabled:
             g.latest_data[73] = g.default_data["LeftHandRotation"][0]["v"]
             g.latest_data[74] = g.default_data["LeftHandRotation"][1]["v"]
             g.latest_data[75] = g.default_data["LeftHandRotation"][2]["v"]
@@ -406,7 +406,7 @@ def hand_pred_handling(detection_result):
 
     if hand_detection_counts["Right"] <= g.config["Tracking"]["Hand"]["hand_detection_lower_threshold"] and \
             g.config["Tracking"]["Hand"]["enable_hand_auto_reset"] and not g.config["Tracking"]["RightController"]["enable"]:
-        if g.config["Smoothing"]["enable"]:
+        if g.smoothing_enabled:
             g.latest_data[79] = g.default_data["RightHandRotation"][0]["v"]
             g.latest_data[80] = g.default_data["RightHandRotation"][1]["v"]
             g.latest_data[81] = g.default_data["RightHandRotation"][2]["v"]

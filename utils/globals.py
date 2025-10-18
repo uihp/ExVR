@@ -11,6 +11,7 @@ running = False
 only_ingame = False
 only_ingame_game = ''
 mouse_enabled = True
+model_loaded = False
 
 config=setup_config()
 data,default_data = setup_data()

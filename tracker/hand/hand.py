@@ -162,7 +162,7 @@ def hand_is_changed(key, hand_name, hand_landmarks, change_points, change_thresh
 hand_detection_counts = {"Left":0,"Right":0}
 finger_action_threshold = {"Left":0,"Right":0}
 prev_distance_scalar = None
-def hand_pred_handling(detection_result):
+def hand_pred_handling(detection_result, hand_feature_model, hand_regression_model):
     global hand_detection_counts, finger_action_threshold,prev_distance_scalar
 
     g.hand_landmarks = detection_result.multi_hand_landmarks
@@ -241,8 +241,8 @@ def hand_pred_handling(detection_result):
             data = data[keypoints].flatten()
             data = np.array(data)
             data = data.reshape(1, -1)  # Reshape to 2D array
-            data_transformed = g.hand_feature_model.transform(data)
-            pred_distance = g.hand_regression_model.predict(data_transformed)
+            data_transformed = hand_feature_model.transform(data)
+            pred_distance = hand_regression_model.predict(data_transformed)
             hand_distance_temp=pred_distance[0]
 
             rounded_value = np.round(g.data["HeadImagePosition"][2]["v"], 2)
@@ -434,64 +434,11 @@ def hand_pred_handling(detection_result):
         # g.controller.right_hand.follow = True
         g.controller.right_hand.follow = False
 
-# class HandDetector:
-
-#     def __init__(self):
-#         mp_hands = mp.solutions.hands
-#         self.hands = mp_hands.Hands(
-#             model_complexity         = g.config["Model"]["Hand"]["model_complexity"],
-#             max_num_hands            = 2,
-#             min_detection_confidence = g.config["Model"]["Hand"]["min_hand_detection_confidence"],
-#             min_tracking_confidence  = g.config["Model"]["Hand"]["min_tracking_confidence"]
-#         )
-#
-#         self._frame_queue = queue.Queue(maxsize=1)
-#         self._stop_event  = threading.Event()
-#         self._worker      = threading.Thread(
-#             target=self._worker_loop,
-#             daemon=True,
-#             name="HandWorker"
-#         )
-#         self._worker.start()
-#
-#     def detect_async(self, image_bgr: np.ndarray) -> None:
-#         if self._frame_queue.full():
-#             try:
-#                 _ = self._frame_queue.get_nowait()   # 丢弃旧帧
-#             except queue.Empty:
-#                 pass
-#         self._frame_queue.put_nowait(image_bgr)
-#
-#     def close(self):
-#         if not self._stop_event.is_set():
-#             self._stop_event.set()
-#             if self._worker.is_alive():
-#                 self._worker.join(timeout=1.0)
-#         if hasattr(self, "hands"):
-#             self.hands.close()
-#
-#     def __del__(self):
-#         self.close()
-#
-#     def _worker_loop(self):
-#         while not self._stop_event.is_set():
-#             try:
-#                 frame_bgr = self._frame_queue.get(timeout=0.02)
-#             except queue.Empty:
-#                 continue
-#
-#             frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-#             result    = self.hands.process(frame_rgb)
-#
-#             hand_pred_handling(result)
-
 def initialize_hand():
     mp_hands = mp.solutions.hands
     return mp_hands.Hands(model_complexity=g.config["Model"]["Hand"]["model_complexity"], max_num_hands=2,
                           min_detection_confidence=g.config["Model"]["Hand"]["min_hand_detection_confidence"],
                           min_tracking_confidence=g.config["Model"]["Hand"]["min_tracking_confidence"])
-# def initialize_hand():
-#     return HandDetector()
 
 def initialize_hand_depth():
     feature_model = joblib.load('./models/hand_feature_model.pkl')

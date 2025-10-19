@@ -78,6 +78,7 @@ class Smoothing:
         need to.
         '''
         self.thread = None
+        self.is_running = False
 
         self.kalman_filters = {}
         self.indices_map = {}
@@ -112,7 +113,7 @@ class Smoothing:
         last_time = time.perf_counter()
         frame_duration = 1.0 / 1000.0  # 1 kHz worker loop
 
-        while g.smoothing_enabled:
+        while self.is_running:
             now = time.perf_counter()
             dt_base = now - last_time  # seconds since previous iteration
 
@@ -193,9 +194,10 @@ class Smoothing:
             last_time = now
             time.sleep(frame_duration)
     def start_thread(self):
+        self.is_running = True
         self.thread = Thread(target=self.__thread_target, daemon=True)
         self.thread.start()
     def stop_thread(self):
         if self.thread is None: return
-        g.smoothing_enabled = False
+        self.is_running = False
         self.thread.join()

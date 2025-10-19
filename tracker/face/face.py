@@ -74,10 +74,10 @@ def is_hand_in_face():
         return normalized_area
     return 0.0
 
-head_position_prev=None
-head_position=None
+head_position_prev = None
+head_position = None
 def face_pred_handling(detection_result, output_image, timestamp_ms, tongue_model):
-    global head_position_prev,head_position
+    global head_position_prev, head_position
     # For each face detected
     for idx in range(len(detection_result.face_landmarks)):
         g.face_landmarks = detection_result.face_landmarks
@@ -228,9 +228,6 @@ def face_pred_handling(detection_result, output_image, timestamp_ms, tongue_mode
                 g.data["HeadImagePosition"][0]["v"] = head_image_position_x
                 g.data["HeadImagePosition"][1]["v"] = head_image_position_y
                 g.data["HeadImagePosition"][2]["v"] = head_image_position_z
-
-
-
 
 def initialize_face(tongue_model):
     BaseOptions = mp.tasks.BaseOptions

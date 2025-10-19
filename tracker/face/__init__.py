@@ -13,5 +13,6 @@ class FaceTracker(TrackerBase):
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)
         timestamp_ms = int((cv2.getTickCount() - self.start_time) * 1000 / cv2.getTickFrequency())
         self.detector.detect_async(mp_image, timestamp_ms=timestamp_ms)
+    def draw_landmarks(self, image_rgb):
         image_marked = draw_face_landmarks(image_rgb)
         return image_marked

@@ -2,7 +2,7 @@ import mediapipe as mp
 import numpy as np
 import math
 from tracker.face.tongue import mouth_roi_on_image, detect_tongue
-import utils.globals as g
+import globals as g
 from mediapipe.framework.formats import landmark_pb2
 from mediapipe import solutions
 from scipy.spatial.transform import Rotation as R

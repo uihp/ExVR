@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import math
 from scipy.ndimage import uniform_filter
-import utils.globals as g
+import globals as g
 
 torch.set_num_threads(1)
 

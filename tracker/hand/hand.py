@@ -5,35 +5,26 @@ import numpy as np
 import mediapipe as mp
 from scipy.spatial.transform import Rotation as R
 from copy import deepcopy
-import utils.globals as g
+import globals as g
 import joblib
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PolynomialFeatures
-# from collections import deque
-# import threading, queue
 
-def draw_hand_landmarks(rgb_image):
+def draw_hand_landmarks(rgb_image, detection_result):
     MARGIN = 10  # pixels
     FONT_SIZE = 1
     FONT_THICKNESS = 1
     HANDEDNESS_TEXT_COLOR = (88, 205, 54)  # vibrant green
 
-    hand_landmarks_list = g.hand_landmarks
-    handedness_list = g.handedness
+    landmarks = detection_result.multi_hand_landmarks
+    handedness = detection_result.multi_handedness
 
-    if hand_landmarks_list is None or handedness_list is None:
-        return rgb_image
+    if landmarks is None or handedness is None: return rgb_image
 
-    # Loop through each detected hand using zip
-    for idx, (hand, hand_landmarks) in enumerate(zip(g.handedness, g.hand_landmarks)):
-        # Draw the hand landmarks.
+    for idx, (hand, hand_landmarks) in enumerate(zip(handedness, landmarks)):
         hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
-        hand_landmarks_proto.landmark.extend(
-            [
-                landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z)
-                for landmark in hand_landmarks.landmark  # Access through .landmark
-            ]
-        )
+        hand_landmarks_proto.landmark.extend([
+            landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z)
+            for landmark in hand_landmarks.landmark  # Access through .landmark
+        ])
         solutions.drawing_utils.draw_landmarks(
             rgb_image,
             hand_landmarks_proto,
@@ -158,15 +149,11 @@ def hand_is_changed(key, hand_name, hand_landmarks, change_points, change_thresh
         prev_hands[key][hand_name] = all_keypoints
     return changed, norm_distance, swap_flag
 
-
 hand_detection_counts = {"Left":0,"Right":0}
 finger_action_threshold = {"Left":0,"Right":0}
 prev_distance_scalar = None
-def hand_pred_handling(detection_result, hand_feature_model, hand_regression_model):
+def hand_pred_handling(backend, detection_result, hand_feature_model, hand_regression_model):
     global hand_detection_counts, finger_action_threshold,prev_distance_scalar
-
-    g.hand_landmarks = detection_result.multi_hand_landmarks
-    g.handedness = detection_result.multi_handedness
 
     hand_detection_counts["Left"] -= 1
     if hand_detection_counts["Left"] < 0:
@@ -262,9 +249,9 @@ def hand_pred_handling(detection_result, hand_feature_model, hand_regression_mod
 
             position_change_flag,_,swap_flag = hand_is_changed("position",hand_name,hand_landmarks,g.config["Tracking"]["Hand"]["position_change_points"],g.config["Tracking"]["Hand"]["position_change_threshold"])
             if hand_name=="Left":
-                g.controller.left_hand.change_flag=position_change_flag
+                backend.left_hand.change_flag=position_change_flag
             elif hand_name=="Right":
-                g.controller.right_hand.change_flag=position_change_flag
+                backend.right_hand.change_flag=position_change_flag
 
             rotation_change_flag,_,_ = hand_is_changed("rotation",hand_name,hand_landmarks,g.config["Tracking"]["Hand"]["rotation_change_points"],g.config["Tracking"]["Hand"]["rotation_change_threshold"])
             if not g.config["Tracking"]["Pose"]["enable"]:
@@ -286,9 +273,9 @@ def hand_pred_handling(detection_result, hand_feature_model, hand_regression_mod
                 finger_0, finger_1, finger_2, finger_3, finger_4 = finger_curl["thumb"],finger_curl["index"],finger_curl["middle"],finger_curl["ring"],finger_curl["pinky"]
                 if g.config["Tracking"]["Hand"]["enable_finger_action"]:
                     if finger_1 < g.config["Tracking"]["Hand"]["trigger_threshold"]:
-                        g.controller.send_trigger(True if hand_name=="Left" else False, 0, 1)
+                        backend.send_trigger(True if hand_name=="Left" else False, 0, 1)
                     else:
-                        g.controller.send_trigger(True if hand_name=="Left" else False, 0, 0)
+                        backend.send_trigger(True if hand_name=="Left" else False, 0, 0)
                     if finger_1>0.3 and finger_3>0.3 and finger_4 >0.5 and finger_0<0.7 and finger_2<0.4:
                         finger_action_threshold[hand_name] = g.config["Tracking"]["Hand"]["finger_action_threshold"]
                     else:
@@ -336,7 +323,7 @@ def hand_pred_handling(detection_result, hand_feature_model, hand_regression_mod
                     g.data["LeftHandFinger"][2]["v"] = finger_2
                     g.data["LeftHandFinger"][3]["v"] = finger_3
                     g.data["LeftHandFinger"][4]["v"] = finger_4
-                g.controller.left_hand.enable = True
+                backend.left_hand.enable = True
             else:
                 if g.smoothing_enabled:
                     if rotation_change_flag:
@@ -370,7 +357,7 @@ def hand_pred_handling(detection_result, hand_feature_model, hand_regression_mod
                     g.data["RightHandFinger"][2]["v"] = finger_2
                     g.data["RightHandFinger"][3]["v"] = finger_3
                     g.data["RightHandFinger"][4]["v"] = finger_4
-                g.controller.right_hand.enable = True
+                backend.right_hand.enable = True
 
     if hand_detection_counts["Left"] <= g.config["Tracking"]["Hand"]["hand_detection_lower_threshold"] and \
             g.config["Tracking"]["Hand"]["enable_hand_auto_reset"] and not g.config["Tracking"]["LeftController"][
@@ -393,16 +380,7 @@ def hand_pred_handling(detection_result, hand_feature_model, hand_regression_mod
             g.data["LeftHandPosition"] = deepcopy(g.default_data["LeftHandPosition"])
             g.data["LeftHandRotation"] = deepcopy(g.default_data["LeftHandRotation"])
             g.data["LeftHandFinger"] = deepcopy(g.default_data["LeftHandFinger"])
-        if g.config["Tracking"]["Hand"]["follow"]:
-            g.controller.left_hand.follow = False
-        else:
-            # g.controller.left_hand.follow = True
-            g.controller.left_hand.follow = False
-        g.controller.left_hand.enable = False
-    else:
-        # g.controller.left_hand.follow = True
-        g.controller.left_hand.follow = False
-
+        backend.left_hand.enable = False
 
     if hand_detection_counts["Right"] <= g.config["Tracking"]["Hand"]["hand_detection_lower_threshold"] and \
             g.config["Tracking"]["Hand"]["enable_hand_auto_reset"] and not g.config["Tracking"]["RightController"]["enable"]:
@@ -424,15 +402,7 @@ def hand_pred_handling(detection_result, hand_feature_model, hand_regression_mod
             g.data["RightHandPosition"] = deepcopy(g.default_data["RightHandPosition"])
             g.data["RightHandRotation"] = deepcopy(g.default_data["RightHandRotation"])
             g.data["RightHandFinger"] = deepcopy(g.default_data["RightHandFinger"])
-        if g.config["Tracking"]["Hand"]["follow"]:
-            g.controller.right_hand.follow = False
-        else:
-            # g.controller.right_hand.follow = True
-            g.controller.right_hand.follow = False
-        g.controller.right_hand.enable = False
-    else:
-        # g.controller.right_hand.follow = True
-        g.controller.right_hand.follow = False
+        backend.right_hand.enable = False
 
 def initialize_hand():
     mp_hands = mp.solutions.hands

@@ -1,4 +1,4 @@
-import sys
+import os, sys
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QCheckBox,
     QSlider,
-    QMessageBox,
     QDialog,
     QScrollArea,
     QGridLayout
@@ -20,19 +19,13 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QThread, Qt
 from PySide6.QtGui import QDoubleValidator
 
+import time
 import cv2
 import winreg, shutil
 from ctypes import windll
 
-import utils.globals as g
-from utils.actions import *
-import utils.tracking
-from utils.data import setup_data, save_data
-from tracker.controller.controller import *
-from tracker.face.face import draw_face_landmarks
-from tracker.face.tongue import draw_tongue_position
-from tracker.hand.hand import draw_hand_landmarks
-from tracker.pose.pose import draw_pose_landmarks
+import globals as g
+from tracking import Tracker
 
 class settings:
     camera_url = 'wss://192.168.31.150:5000/browsercam/signal'
@@ -51,26 +44,18 @@ class VideoCaptureThread(QThread):
     def __init__(self):
         super().__init__()
         self.is_running = True
-        self.tracker = utils.tracking.Tracker()
+        self.tracker = Tracker()
     def run(self):
         from rtcam import CameraThread
         self.camera = CameraThread(settings.camera_url)
         self.camera.start()
         while self.is_running:
             while self.camera.frame is None: time.sleep(0.1)
-            rgb_image = self.camera.frame.to_ndarray(format='rgb24')
-            if settings.flip_x: rgb_image = cv2.flip(rgb_image, 1)
-            if settings.flip_y: rgb_image = cv2.flip(rgb_image, 0)
-            self.tracker.process_frames(rgb_image)
-            if g.config['Tracking']['Head']['enable'] or g.config['Tracking']['Face']['enable']:
-                rgb_image = draw_face_landmarks(rgb_image)
-            if g.config['Tracking']['Tongue']['enable']:
-                rgb_image = draw_tongue_position(rgb_image)
-            if g.config['Tracking']['Pose']['enable']:
-                rgb_image = draw_pose_landmarks(rgb_image)
-            if g.config['Tracking']['Hand']['enable']:
-                rgb_image = draw_hand_landmarks(rgb_image)
-            cv2.imshow('Camera View', cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR))
+            image_rgb = self.camera.frame.to_ndarray(format='rgb24')
+            if settings.flip_x: image_rgb = cv2.flip(image_rgb, 1)
+            if settings.flip_y: image_rgb = cv2.flip(image_rgb, 0)
+            image_rgb = self.tracker.process_frames(image_rgb)
+            cv2.imshow('Camera View', cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR))
             cv2.waitKey(1)
         self.camera.stop()
     def stop(self):
@@ -148,21 +133,6 @@ class VideoWindow(QMainWindow):
 
         separator_0 = QFrame(self)
         layout.addWidget(separator_0)
-
-        reset_layout = QHBoxLayout()  # Create a QHBoxLayout for new reset buttons
-        self.reset_head = QPushButton('Reset Head', self)
-        self.reset_head.clicked.connect(reset_head)
-        reset_layout.addWidget(self.reset_head)
-        self.reset_eyes = QPushButton('Reset Eyes', self)
-        self.reset_eyes.clicked.connect(reset_eye)
-        reset_layout.addWidget(self.reset_eyes)
-        self.reset_l_hand = QPushButton('Reset LHand', self)
-        self.reset_l_hand.clicked.connect(lambda: reset_hand(True))
-        reset_layout.addWidget(self.reset_l_hand)
-        self.reset_r_hand = QPushButton('Reset RHand', self)
-        self.reset_r_hand.clicked.connect(lambda: reset_hand(False))
-        reset_layout.addWidget(self.reset_r_hand)
-        layout.addLayout(reset_layout)
 
         checkbox_layout = QHBoxLayout()
         self.checkbox1 = QCheckBox('Head', self)
@@ -289,40 +259,11 @@ class VideoWindow(QMainWindow):
         mouse_layout.addWidget(self.mouse_slider_dx)
         layout.addLayout(mouse_layout)
 
-        separator_3 = QFrame(self)
-        layout.addWidget(separator_3)
-
-        config_layout = QHBoxLayout()
-        self.set_face_button = QPushButton('Set Face', self)
-        self.set_face_button.clicked.connect(self.face_dialog)
-        config_layout.addWidget(self.set_face_button)
-        self.update_config_button = QPushButton('Update Config', self)
-        self.update_config_button.clicked.connect(lambda:(g.update_configs(),self.update_checkboxes(), self.update_sliders()))
-        config_layout.addWidget(self.update_config_button)
-        self.save_config_button = QPushButton('Save Config', self)
-        self.save_config_button.clicked.connect(g.save_configs)
-        config_layout.addWidget(self.save_config_button)
-        layout.addLayout(config_layout)
         self.update_checkboxes()
         self.update_sliders()
         self.video_thread = None
         self.controller_thread = None
-    def save_data(self):
-        data=deepcopy(g.default_data)
-        for i, (key, edits) in enumerate(self.lineEdits.items()):
-            idx=i+1
-            v = float(edits[0].text())
-            s = float(edits[1].text())
-            w = float(edits[2].text())
-            max_value = float(edits[3].text())
-            e = self.checkBoxes[key].isChecked()
-            data['BlendShapes'][idx]['v'] = v
-            data['BlendShapes'][idx]['s'] = s
-            data['BlendShapes'][idx]['w'] = w
-            data['BlendShapes'][idx]['max'] = max_value
-            data['BlendShapes'][idx]['e'] = e
-        save_data(data)
-        self.dialog.close()
+        self.toggle_camera()
     def face_dialog(self):
         self.dialog = QDialog(self)
         self.dialog.setWindowTitle('Face Setting')
@@ -457,11 +398,6 @@ class VideoWindow(QMainWindow):
         self.mouse_label_x.setText(f'x {int(mouse_x)}')
         self.mouse_label_y.setText(f'y {int(mouse_y)}')
         self.mouse_label_dx.setText(f'dx {mouse_dx:.2f}')
-    def reset_hotkeys(self):
-        stop_hotkeys()
-        apply_hotkeys()
-        if self.video_thread is None:
-            stop_hotkeys()
     def set_tracking_config(self, key, value):
         if key in g.config['Tracking']:
             g.config['Tracking'][key]['enable'] = value
@@ -510,7 +446,7 @@ class VideoWindow(QMainWindow):
         }
         # Check if the index is valid
         if priority_key not in priority_classes:
-            self.display_message('Error','Invalid priority index')
+            print('Error', 'Invalid priority index')
             return False
         priority_class = priority_classes[priority_key]
         current_pid = os.getpid()  # Get the current process ID
@@ -519,14 +455,6 @@ class VideoWindow(QMainWindow):
         windll.kernel32.CloseHandle(handle)
         print('Finished setting priority')
         settings.priority = priority_key
-    def display_message(self,title,message,style=''):
-        msg_box = QMessageBox()
-        msg_box.setIcon(QMessageBox.Critical)
-        msg_box.setText(message)
-        msg_box.setWindowTitle(title)
-        msg_box.setStyleSheet(style)
-        msg_box.exec_()
-        return
     def install_function(self):
         self.install_state, steamvr_driver_path, vrcfacetracking_path, check_steamvr_path = self.install_checking()
         if check_steamvr_path is not None:
@@ -588,18 +516,11 @@ class VideoWindow(QMainWindow):
             self.toggle_button.setStyleSheet('QPushButton { background-color: red; color: white; }')
             self.video_thread = VideoCaptureThread()
             self.video_thread.start()
-            # controller
-            self.controller_thread = ControllerApp()
-            self.controller_thread.start()
     def thread_stopped(self):
         if self.video_thread:
             self.video_thread.stop()
             self.video_thread.wait()
             self.video_thread = None
-        if self.controller_thread:
-            self.controller_thread.stop()
-            self.controller_thread.wait()
-            self.controller_thread = None
     def closeEvent(self, event):
         self.thread_stopped()
         super().closeEvent(event)

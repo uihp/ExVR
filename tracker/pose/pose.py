@@ -4,14 +4,14 @@ import threading
 import queue
 import onnxruntime as ort
 from typing import Tuple
-import utils.globals as g
+import globals as g
 
 def pose_pred_handling(detection_result):
     g.pose_landmarks = detection_result
     keypoints = detection_result[1]
     scores = detection_result[2]
     if keypoints is not None and len(keypoints) > 0 and len(keypoints[0]) > 0:
-        if scores[0][9] > g.config["Model"]["Pose"]["min_pose_detection_confidence"] and g.controller.left_hand.enable and g.controller.left_hand.change_flag:
+        if scores[0][9] > g.config["Model"]["Pose"]["min_pose_detection_confidence"]:
             left_hand_position = keypoints[0][0] - keypoints[0][9]
             left_hand_position[0] *= g.config["Tracking"]["Hand"]["x_scalar"]
             left_hand_position[1] *= g.config["Tracking"]["Hand"]["y_scalar"]
@@ -24,7 +24,7 @@ def pose_pred_handling(detection_result):
                 g.data["LeftHandPosition"][0]["v"] = left_hand_position[0]
                 g.data["LeftHandPosition"][1]["v"] = left_hand_position[1]
 
-        if scores[0][10] > g.config["Model"]["Pose"]["min_pose_detection_confidence"] and g.controller.right_hand.enable and g.controller.right_hand.change_flag:
+        if scores[0][10] > g.config["Model"]["Pose"]["min_pose_detection_confidence"]:
             right_hand_position = keypoints[0][0] - keypoints[0][10]
             right_hand_position[0] *= g.config["Tracking"]["Hand"]["x_scalar"]
             right_hand_position[1] *= g.config["Tracking"]["Hand"]["y_scalar"]

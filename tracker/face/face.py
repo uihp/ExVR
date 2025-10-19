@@ -1,6 +1,7 @@
 import mediapipe as mp
 import numpy as np
 import math
+from copy import deepcopy
 from tracker.face.tongue import mouth_roi_on_image, detect_tongue
 import globals as g
 from mediapipe.framework.formats import landmark_pb2
@@ -13,6 +14,7 @@ def draw_face_landmarks(rgb_image):
     if face_landmarks_list is None:
         return rgb_image
 
+    rgb_image = deepcopy(rgb_image)
     for idx in range(len(face_landmarks_list)):
         face_landmarks = face_landmarks_list[idx]
 

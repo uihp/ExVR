@@ -22,16 +22,18 @@ import globals as g
 from tracking import Tracker
 
 class VideoCaptureThread(QThread):
-    def __init__(self):
+    def __init__(self, tracker):
         super().__init__()
         self.is_running = True
-        self.tracker = Tracker()
+        self.tracker = tracker
     def run(self):
         from rtcam import CameraThread
         self.camera = CameraThread(g.settings.camera_url)
         self.camera.start()
         while self.is_running:
-            while self.camera.frame is None: time.sleep(0.1)
+            if self.camera.frame is None:
+                time.sleep(0.1)
+                continue
             image_rgb = self.camera.frame.to_ndarray(format='rgb24')
             if g.settings.flip_x: image_rgb = cv2.flip(image_rgb, 1)
             if g.settings.flip_y: image_rgb = cv2.flip(image_rgb, 0)
@@ -41,11 +43,11 @@ class VideoCaptureThread(QThread):
         self.camera.stop()
     def stop(self):
         self.is_running = False
-        self.tracker.stop()
 
 class VideoWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        
         self.setWindowTitle(f'ExVR - Experience Virtual Reality')
 
         central_widget = QWidget(self)
@@ -111,6 +113,8 @@ class VideoWindow(QMainWindow):
         self.toggle_button.setStyleSheet('QPushButton { background-color: green; color: white; }')
         self.toggle_button.clicked.connect(self.toggle_camera)
         layout.addWidget(self.toggle_button)
+
+        self.tracker = Tracker()
 
         self.video_thread = None
         self.toggle_camera()
@@ -223,10 +227,12 @@ class VideoWindow(QMainWindow):
         else:
             self.toggle_button.setText('Stop Tracking')
             self.toggle_button.setStyleSheet('QPushButton { background-color: red; color: white; }')
-            self.video_thread = VideoCaptureThread()
+            self.video_thread = VideoCaptureThread(self.tracker)
+            self.tracker.start()
             self.video_thread.start()
     def thread_stopped(self):
         if self.video_thread:
+            self.tracker.stop()
             self.video_thread.stop()
             self.video_thread.wait()
             self.video_thread = None

@@ -1,12 +1,13 @@
-import cv2
+import mediapipe as mp
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
+import cv2
+import joblib
 import numpy as np
-import mediapipe as mp
 from scipy.spatial.transform import Rotation as R
 from copy import deepcopy
+
 import globals as g
-import joblib
 
 def draw_hand_landmarks(rgb_image, detection_result):
     MARGIN = 10  # pixels
@@ -154,6 +155,8 @@ finger_action_threshold = {"Left":0,"Right":0}
 prev_distance_scalar = None
 def hand_pred_handling(backend, detection_result, hand_feature_model, hand_regression_model):
     global hand_detection_counts, finger_action_threshold,prev_distance_scalar
+
+    g.hand_landmarks = detection_result.multi_hand_landmarks
 
     hand_detection_counts["Left"] -= 1
     if hand_detection_counts["Left"] < 0:

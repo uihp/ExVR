@@ -18,7 +18,7 @@ import cv2
 import winreg, shutil
 from ctypes import windll
 
-import globals as g
+from globals import settings
 from tracking import Tracker
 
 class VideoCaptureThread(QThread):
@@ -28,15 +28,15 @@ class VideoCaptureThread(QThread):
         self.tracker = tracker
     def run(self):
         from rtcam import CameraThread
-        self.camera = CameraThread(g.settings.camera_url)
+        self.camera = CameraThread(settings.camera_url)
         self.camera.start()
         while self.is_running:
             if self.camera.frame is None:
                 time.sleep(0.1)
                 continue
             image_rgb = self.camera.frame.to_ndarray(format='rgb24')
-            if g.settings.flip_x: image_rgb = cv2.flip(image_rgb, 1)
-            if g.settings.flip_y: image_rgb = cv2.flip(image_rgb, 0)
+            if settings.flip_x: image_rgb = cv2.flip(image_rgb, 1)
+            if settings.flip_y: image_rgb = cv2.flip(image_rgb, 0)
             image_rgb = self.tracker.process_frames(image_rgb)
             cv2.imshow('Camera View', cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR))
             cv2.waitKey(1)
@@ -75,30 +75,30 @@ class VideoWindow(QMainWindow):
 
         self.camera_url_input = QLineEdit(self)
         self.camera_url_input.setPlaceholderText('Enter WebRTC camera URL')
-        self.camera_url_input.textChanged.connect(lambda val:setattr(g.settings, 'camera_url', val))
-        self.camera_url_input.setText(g.settings.camera_url)
+        self.camera_url_input.textChanged.connect(lambda val:setattr(settings, 'camera_url', val))
+        self.camera_url_input.setText(settings.camera_url)
         layout.addWidget(self.camera_url_input)
 
         flip_layout = QHBoxLayout()
         self.flip_x_checkbox = QCheckBox('Flip X', self)
-        self.flip_x_checkbox.clicked.connect(lambda:g.settings.toggle('flip_x'))
-        self.flip_x_checkbox.setChecked(g.settings.flip_x)
+        self.flip_x_checkbox.clicked.connect(lambda:settings.toggle('flip_x'))
+        self.flip_x_checkbox.setChecked(settings.flip_x)
         flip_layout.addWidget(self.flip_x_checkbox)
         self.flip_y_checkbox = QCheckBox('Flip Y', self)
-        self.flip_y_checkbox.clicked.connect(lambda:g.settings.toggle('flip_y'))
-        self.flip_y_checkbox.setChecked(g.settings.flip_y)
+        self.flip_y_checkbox.clicked.connect(lambda:settings.toggle('flip_y'))
+        self.flip_y_checkbox.setChecked(settings.flip_y)
         flip_layout.addWidget(self.flip_y_checkbox)
         layout.addLayout(flip_layout)
 
         only_ingame_layout = QHBoxLayout()
         self.only_ingame_checkbox = QCheckBox('Only Ingame', self)
-        self.only_ingame_checkbox.clicked.connect(lambda: self.setattr(g.settings, 'only_ingame', self.only_ingame_checkbox.isChecked()))
-        self.only_ingame_checkbox.setChecked(g.settings.only_ingame)
+        self.only_ingame_checkbox.clicked.connect(lambda: setattr(settings, 'only_ingame', self.only_ingame_checkbox.isChecked()))
+        self.only_ingame_checkbox.setChecked(settings.only_ingame)
         self.only_ingame_checkbox.setToolTip('Currently this only applies to hotkeys and mouse input and not head movement')
         self.only_ingame_game_input = QLineEdit(self)
         self.only_ingame_game_input.setPlaceholderText('window title / process name / VRChat, VRChat.exe, javaw.exe')
-        self.only_ingame_game_input.textChanged.connect(lambda val:setattr(g.settings, 'only_ingame_game', val))
-        self.only_ingame_game_input.setText(g.settings.only_ingame_game)
+        self.only_ingame_game_input.textChanged.connect(lambda val:setattr(settings, 'only_ingame_game', val))
+        self.only_ingame_game_input.setText(settings.only_ingame_game)
         only_ingame_layout.addWidget(self.only_ingame_checkbox)
         only_ingame_layout.addWidget(self.only_ingame_game_input)
         layout.addLayout(only_ingame_layout)
@@ -107,7 +107,7 @@ class VideoWindow(QMainWindow):
         self.priority_selection.addItems(['IDLE_PRIORITY_CLASS', 'BELOW_NORMAL_PRIORITY_CLASS', 'NORMAL_PRIORITY_CLASS', 'ABOVE_NORMAL_PRIORITY_CLASS', 'HIGH_PRIORITY_CLASS', 'REALTIME_PRIORITY_CLASS'])
         self.priority_selection.currentIndexChanged.connect(self.set_process_priority)
         layout.addWidget(self.priority_selection)
-        self.priority_selection.setCurrentIndex(self.priority_selection.findText(g.settings.priority))
+        self.priority_selection.setCurrentIndex(self.priority_selection.findText(settings.priority))
 
         self.toggle_button = QPushButton('Start Tracking', self)
         self.toggle_button.setStyleSheet('QPushButton { background-color: green; color: white; }')
@@ -118,8 +118,6 @@ class VideoWindow(QMainWindow):
 
         self.video_thread = None
         self.toggle_camera()
-    def set_tracking_config(self, key, value):
-        if key in g.config['Tracking']: g.config['Tracking'][key]['enable'] = value
     def install_checking(self):
         # Open registry key to get Steam installation path
         try:
@@ -169,7 +167,7 @@ class VideoWindow(QMainWindow):
         success = windll.kernel32.SetPriorityClass(handle, priority_class)
         windll.kernel32.CloseHandle(handle)
         print('Finished setting priority')
-        g.settings.priority = priority_key
+        settings.priority = priority_key
     def install_function(self):
         self.install_state, steamvr_driver_path, vrcfacetracking_path, check_steamvr_path = self.install_checking()
         if check_steamvr_path is not None:

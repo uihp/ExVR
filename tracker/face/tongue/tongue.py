@@ -65,7 +65,6 @@ class LightDoubleConv(nn.Module):
     def forward(self, x):
         return self.double_conv(x)
 
-
 class KeypointCNN(nn.Module):
     def __init__(self, num_keypoints=1):
         super(KeypointCNN, self).__init__()
@@ -99,16 +98,6 @@ class KeypointCNN(nn.Module):
         x_flat = torch.flatten(x_flat, 1)
         classification = torch.sigmoid(self.fc_classifier(x_flat))
         return keypoints_heatmap, classification
-
-
-def initialize_tongue_model():
-    tongue_model = KeypointCNN()
-    tongue_model.load_state_dict(
-        torch.load("./models/model_epoch_196.pth", weights_only=True)
-    )
-    tongue_model.eval()
-    return tongue_model
-
 
 def mouth_roi_on_image(rgb_image, face_landmarks):
     try:
@@ -155,52 +144,58 @@ def mouth_roi_on_image(rgb_image, face_landmarks):
     except:
         return None
 
-
 def max_average_point(heatmap, window_size=5):
     filtered_heatmap = uniform_filter(heatmap, size=window_size)
     best_point = np.unravel_index(np.argmax(filtered_heatmap, axis=None), heatmap.shape)
     return best_point
 
-tongue_count = 0
-def detect_tongue(mouth_image, tongue_model, data):
-    global tongue_count
-    tongue_out, tongue_x, tongue_y = 0.0, 0.0, 0.0
-    if mouth_image is not None:
-        with torch.no_grad():
-            input_tensor = torch.from_numpy(mouth_image).view(1, 1, 32, 32).float()
-            input_tensor = input_tensor / 255.0
-            out_keypoints, out_classification = tongue_model(input_tensor)
-            # out_keypoints = out_keypoints * out_classification
-            _, _, y, x = max_average_point(out_keypoints.numpy(), 5)
-        out_classification_value = out_classification.item()
-    else:
-        out_classification_value = 0.0
+class TongueDetector:
+    def __init__(self):
+        tongue_model = KeypointCNN()
+        tongue_model.load_state_dict(
+            torch.load("./models/model_epoch_196.pth", weights_only=True)
+        )
+        tongue_model.eval()
+        self.tongue_model = tongue_model
+        self.tongue_count = 0
+    def detect(self, mouth_image, data):
+        tongue_out, tongue_x, tongue_y = 0.0, 0.0, 0.0
+        if mouth_image is not None:
+            with torch.no_grad():
+                input_tensor = torch.from_numpy(mouth_image).view(1, 1, 32, 32).float()
+                input_tensor = input_tensor / 255.0
+                out_keypoints, out_classification = self.tongue_model(input_tensor)
+                # out_keypoints = out_keypoints * out_classification
+                _, _, y, x = max_average_point(out_keypoints.numpy(), 5)
+            out_classification_value = out_classification.item()
+        else:
+            out_classification_value = 0.0
 
-    if out_classification_value > g.config["Tracking"]["Tongue"]["tongue_confidence"]:
-        tongue_count += 1
-        if tongue_count >= g.config["Tracking"]["Tongue"]["tongue_threshold"]:
-            tongue_count = g.config["Tracking"]["Tongue"]["tongue_threshold"]  # Prevent counter from growing too large
-            tongue_out = 1.0
-            tongue_x = float(-(x / 32 - 0.5) * g.config["Tracking"]["Tongue"]["tongue_x_scalar"])
-            tongue_y = float(-(y / 32 - 0.5) * g.config["Tracking"]["Tongue"]["tongue_y_scalar"])
-            # print(tongue_x, tongue_y, out_classification_value)
-    else:
-        tongue_count -= 1
-        if tongue_count <= 0:
-            tongue_count = 0
+        if out_classification_value > g.config["Tracking"]["Tongue"]["tongue_confidence"]:
+            self.tongue_count += 1
+            if self.tongue_count >= g.config["Tracking"]["Tongue"]["tongue_threshold"]:
+                self.tongue_count = g.config["Tracking"]["Tongue"]["tongue_threshold"]  # Prevent counter from growing too large
+                tongue_out = 1.0
+                tongue_x = float(-(x / 32 - 0.5) * g.config["Tracking"]["Tongue"]["tongue_x_scalar"])
+                tongue_y = float(-(y / 32 - 0.5) * g.config["Tracking"]["Tongue"]["tongue_y_scalar"])
+                # print(tongue_x, tongue_y, out_classification_value)
+        else:
+            self.tongue_count -= 1
+            if self.tongue_count <= 0:
+                self.tongue_count = 0
+                tongue_out = 0.0
+                tongue_x = 0.0
+                tongue_y = 0.0
+            else:
+                # print(self.tongue_count)
+                tongue_out = g.data["BlendShapes"][52]["v"]
+                tongue_x = g.data["BlendShapes"][62]["v"]
+                tongue_y = g.data["BlendShapes"][63]["v"]
+        # Reset tongue if mouth is closed
+        if data["BlendShapes"][25]["v"] < g.config["Tracking"]["Tongue"]["mouth_close_threshold"]:
+            # self.tongue_count = 0
             tongue_out = 0.0
             tongue_x = 0.0
             tongue_y = 0.0
-        else:
-            # print(tongue_count)
-            tongue_out = g.data["BlendShapes"][52]["v"]
-            tongue_x = g.data["BlendShapes"][62]["v"]
-            tongue_y = g.data["BlendShapes"][63]["v"]
-    # Reset tongue if mouth is closed
-    if data["BlendShapes"][25]["v"] < g.config["Tracking"]["Tongue"]["mouth_close_threshold"]:
-        # tongue_count = 0
-        tongue_out = 0.0
-        tongue_x = 0.0
-        tongue_y = 0.0
 
-    return tongue_out, tongue_x, tongue_y
+        return tongue_out, tongue_x, tongue_y

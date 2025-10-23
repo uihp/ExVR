@@ -1,8 +1,9 @@
 import time
 import json
 import numpy as np
-import globals as g
 from threading import Thread
+
+import globals as g
 
 class VectorKalmanFilter:
     '''Multi‑dimensional (vector) Kalman filter used for the high‑priority actions

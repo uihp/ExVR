@@ -35,28 +35,6 @@
             "shifting": 0,
             "dt_multiplier": 50
         },
-        "HeadPosition": {
-            "key": "Position",
-            "is_rotation": false,
-            "indices": [64, 65, 66],
-            "shifting": 64,
-            "dt_multiplier": 20,
-              "kalman_params": {
-                "q_process": 0.005,
-                "r_measure": 0.03
-              }
-        },
-        "HeadRotation": {
-            "key": "Rotation",
-            "is_rotation": true,
-            "indices": [67, 68, 69],
-            "shifting": 67,
-            "dt_multiplier": 50,
-              "kalman_params": {
-                "q_process": 0.02,
-                "r_measure": 0.03
-              }
-        },
         "LeftHandRotation": {
             "key": "LeftHandRotation",
             "is_rotation": true,
@@ -123,60 +101,11 @@
                 "r_measure": 0.03
               }
         },
-        "LeftControllerRotation": {
-            "key": "LeftControllerRotation",
-            "is_rotation": true,
-            "indices": [95, 96, 97],
-            "shifting": 95,
-            "dt_multiplier": 100
-        },
-        "RightControllerRotation": {
-            "key": "RightControllerRotation",
-            "is_rotation": true,
-            "indices": [101, 102, 103],
-            "shifting": 101,
-            "dt_multiplier": 100
-        },
-        "LeftControllerPosition": {
-            "key": "LeftControllerPosition",
-            "is_rotation": false,
-            "indices": [92, 93, 94],
-            "shifting": 92,
-            "dt_multiplier": 100
-        },
-        "RightControllerPosition": {
-            "key": "RightControllerPosition",
-            "is_rotation": false,
-            "indices": [98, 99, 100],
-            "shifting": 98,
-            "dt_multiplier": 100
-        },
-        "LeftControllerFinger": {
-            "key": "LeftControllerFinger",
-            "is_rotation": false,
-            "indices": [104, 105, 106, 107, 108],
-            "shifting": 104,
-            "dt_multiplier": 20
-        },
-        "RightControllerFinger": {
-            "key": "RightControllerFinger",
-            "is_rotation": false,
-            "indices": [109, 110, 111, 112, 113],
-            "shifting": 109,
-            "dt_multiplier": 20
-        },
         "HeadImagePosition": {
             "key": "HeadImagePosition",
             "is_rotation": false,
             "indices": [114, 115, 116],
             "shifting": 114,
-            "dt_multiplier": 100
-        },
-        "MousePosition": {
-            "key": "MousePosition",
-            "is_rotation": false,
-            "indices": [117, 118],
-            "shifting": 117,
             "dt_multiplier": 100
         }
     }

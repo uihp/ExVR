@@ -44,9 +44,9 @@ class Detector:
             base_options=mp.tasks.BaseOptions(model_asset_path="./models/face_landmarker.task"),
             output_face_blendshapes=True,
             output_facial_transformation_matrixes=True,
-            min_face_detection_confidence=g.config["Model"]["Face"]["min_face_detection_confidence"],
-            min_face_presence_confidence=g.config["Model"]["Face"]["min_face_presence_confidence"],
-            min_tracking_confidence=g.config["Model"]["Face"]["min_tracking_confidence"],
+            min_face_detection_confidence=0.5,
+            min_face_presence_confidence=0.5,
+            min_tracking_confidence=0.5,
             num_faces=1,
             running_mode=mp.tasks.vision.RunningMode.LIVE_STREAM,
             result_callback=self.__result_callback))
@@ -63,7 +63,6 @@ class Detector:
         self.__handle_result(trans_matrix)
     def __handle_result(self, trans_matrix):
         mat = np.array(trans_matrix)
-
         g.raw.head.position.update(
             x = -mat[0][3] * g.settings.x_scalar,
             y = -mat[2][3] * g.settings.z_scalar,
@@ -82,33 +81,6 @@ class Detector:
                 * 180 / math.pi
                 * g.settings.roll_scalar))
 
-        head_image_position_x = g.face_landmarks[4].x
-        head_image_position_y = g.face_landmarks[4].y
-        head_image_position_z = g.face_landmarks[4].z
-
-        if g.smoothing_enabled:
-            if g.config["Tracking"]["Head"]["enable"]:
-                # Head Position
-                g.latest_data[64] = g.raw.head.position.x
-                g.latest_data[65] = g.raw.head.position.y
-                g.latest_data[66] = g.raw.head.position.z
-                # Head Rotation
-                g.latest_data[67] = g.raw.head.rotation.yaw
-                g.latest_data[68] = g.raw.head.rotation.pitch
-                g.latest_data[69] = g.raw.head.rotation.roll
-            g.latest_data[114] = head_image_position_x
-            g.latest_data[115] = head_image_position_y
-            g.latest_data[116] = head_image_position_z
-        else:
-            if g.config["Tracking"]["Head"]["enable"]:
-                # Head Position
-                g.data["Position"][0]["v"] = g.raw.head.position.x
-                g.data["Position"][1]["v"] = g.raw.head.position.y
-                g.data["Position"][2]["v"] = g.raw.head.position.z
-                # Head Rotation
-                g.data["Rotation"][0]["v"] = g.raw.head.rotation.yaw
-                g.data["Rotation"][1]["v"] = g.raw.head.rotation.pitch
-                g.data["Rotation"][2]["v"] = g.raw.head.rotation.roll
-            g.data["HeadImagePosition"][0]["v"] = head_image_position_x
-            g.data["HeadImagePosition"][1]["v"] = head_image_position_y
-            g.data["HeadImagePosition"][2]["v"] = head_image_position_z
+        g.latest_data[114] = g.face_landmarks[4].x
+        g.latest_data[115] = g.face_landmarks[4].y
+        g.latest_data[116] = g.face_landmarks[4].z

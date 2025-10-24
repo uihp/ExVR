@@ -82,62 +82,25 @@ class GloveControllerSender:
         )
 
     def handling_hand_data(self):
-        if g.config["Tracking"]["LeftController"]["enable"]:
-            left_hand_type="Controller"
-        else:
-            left_hand_type = "Hand"
-        if g.config["Tracking"]["RightController"]["enable"]:
-            right_hand_type="Controller"
-        else:
-            right_hand_type="Hand"
-
-        # Process left hand g.data
-        yaw_l = get_value(g.data[f"Left{left_hand_type}Rotation"][0], g.default_data[f"Left{left_hand_type}Rotation"][0])
-        pitch_l = get_value(
-            g.data[f"Left{left_hand_type}Rotation"][1], g.default_data[f"Left{left_hand_type}Rotation"][1]
-        )
-        roll_l = get_value(g.data[f"Left{left_hand_type}Rotation"][2], g.default_data[f"Left{left_hand_type}Rotation"][2])
-        if g.config["Tracking"]["LeftController"]["enable"]:
-            base_x_l=g.config["Tracking"]["LeftController"]["base_x"]
-            base_y_l=g.config["Tracking"]["LeftController"]["base_y"]
-            base_z_l=g.config["Tracking"]["LeftController"]["base_z"]
-            length_l=g.config["Tracking"]["LeftController"]["length"]
-            g.data[f"Left{left_hand_type}Position"][0]["v"],g.data[f"Left{left_hand_type}Position"][1]["v"],g.data[f"Left{left_hand_type}Position"][2]["v"] = calculate_endpoint([base_x_l,base_y_l,base_z_l], length_l, [yaw_l-40,pitch_l,roll_l])
-
-        x_l = get_value(g.data[f"Left{left_hand_type}Position"][0], g.default_data[f"Left{left_hand_type}Position"][0])
-        y_l = get_value(g.data[f"Left{left_hand_type}Position"][1], g.default_data[f"Left{left_hand_type}Position"][1])
-        z_l = get_value(g.data[f"Left{left_hand_type}Position"][2], g.default_data[f"Left{left_hand_type}Position"][2])
+        yaw_l = get_value(g.data[f"LeftHandRotation"][0], g.default_data[f"LeftHandRotation"][0])
+        pitch_l = get_value(g.data[f"LeftHandRotation"][1], g.default_data[f"LeftHandRotation"][1])
+        roll_l = get_value(g.data[f"LeftHandRotation"][2], g.default_data[f"LeftHandRotation"][2])
+        x_l = get_value(g.data[f"LeftHandPosition"][0], g.default_data[f"LeftHandPosition"][0])
+        y_l = get_value(g.data[f"LeftHandPosition"][1], g.default_data[f"LeftHandPosition"][1])
+        z_l = get_value(g.data[f"LeftHandPosition"][2], g.default_data[f"LeftHandPosition"][2])
         quat_l = R.from_euler("xyz", [yaw_l, pitch_l, roll_l], degrees=True).as_quat()
         matrix_l=R.from_euler("xyz", [yaw_l, pitch_l, roll_l], degrees=True).as_matrix()
-        # Process right hand g.data
-        yaw_r = get_value(
-            g.data[f"Right{right_hand_type}Rotation"][0], g.default_data[f"Right{right_hand_type}Rotation"][0]
-        )
-        pitch_r = get_value(
-            g.data[f"Right{right_hand_type}Rotation"][1], g.default_data[f"Right{right_hand_type}Rotation"][1]
-        )
-        roll_r = get_value(
-            g.data[f"Right{right_hand_type}Rotation"][2], g.default_data[f"Right{right_hand_type}Rotation"][2]
-        )
-        if g.config["Tracking"]["RightController"]["enable"]:
-            base_x_r=g.config["Tracking"]["RightController"]["base_x"]
-            base_y_r=g.config["Tracking"]["RightController"]["base_y"]
-            base_z_r=g.config["Tracking"]["RightController"]["base_z"]
-            length_r=g.config["Tracking"]["RightController"]["length"]
-            g.data[f"Right{right_hand_type}Position"][0]["v"],g.data[f"Right{right_hand_type}Position"][1]["v"],g.data[f"Right{right_hand_type}Position"][2]["v"] = calculate_endpoint([base_x_r,base_y_r,base_z_r], length_r, [yaw_r-40,pitch_r,roll_r])
-
-        x_r = get_value(g.data[f"Right{right_hand_type}Position"][0], g.default_data[f"Right{right_hand_type}Position"][0])
-        y_r = get_value(g.data[f"Right{right_hand_type}Position"][1], g.default_data[f"Right{right_hand_type}Position"][1])
-        z_r = get_value(g.data[f"Right{right_hand_type}Position"][2], g.default_data[f"Right{right_hand_type}Position"][2])
+        yaw_r = get_value(g.data[f"RightHandRotation"][0], g.default_data[f"RightHandRotation"][0])
+        pitch_r = get_value(g.data[f"RightHandRotation"][1], g.default_data[f"RightHandRotation"][1])
+        roll_r = get_value(g.data[f"RightHandRotation"][2], g.default_data[f"RightHandRotation"][2])
+        x_r = get_value(g.data[f"RightHandPosition"][0], g.default_data[f"RightHandPosition"][0])
+        y_r = get_value(g.data[f"RightHandPosition"][1], g.default_data[f"RightHandPosition"][1])
+        z_r = get_value(g.data[f"RightHandPosition"][2], g.default_data[f"RightHandPosition"][2])
         quat_r = R.from_euler("xyz", [yaw_r, pitch_r, roll_r], degrees=True).as_quat()
         matrix_r=R.from_euler("xyz", [yaw_r, pitch_r, roll_r], degrees=True).as_matrix()
 
-        if not g.config["Tracking"]["Pose"]["enable"]:
-            center_l = np.array([g.config["Tracking"]["Hand"]["center_l_x"], g.config["Tracking"]["Hand"]["center_l_y"],
-                            g.config["Tracking"]["Hand"]["center_l_z"]])
-        else:
-            center_l = np.array([g.config["Tracking"]["Pose"]["center_l_x"], g.config["Tracking"]["Pose"]["center_l_y"],
-                            g.config["Tracking"]["Pose"]["center_l_z"]])
+        center_l = np.array([g.config["Tracking"]["Hand"]["center_l_x"], g.config["Tracking"]["Hand"]["center_l_y"],
+                        g.config["Tracking"]["Hand"]["center_l_z"]])
 
         wrist_position_l = (x_l, y_l, z_l)
         wrist_position_l = np.array(wrist_position_l)
@@ -146,12 +109,8 @@ class GloveControllerSender:
         self.left_hand.position = wrist_position_l
         self.left_hand.rotation = quat_l
 
-        if not g.config["Tracking"]["Pose"]["enable"]:
-            center_r = np.array([g.config["Tracking"]["Hand"]["center_r_x"], g.config["Tracking"]["Hand"]["center_r_y"],
-                            g.config["Tracking"]["Hand"]["center_r_z"]])
-        else:
-            center_r = np.array([g.config["Tracking"]["Pose"]["center_r_x"], g.config["Tracking"]["Pose"]["center_r_y"],
-                            g.config["Tracking"]["Pose"]["center_r_z"]])
+        center_r = np.array([g.config["Tracking"]["Hand"]["center_r_x"], g.config["Tracking"]["Hand"]["center_r_y"],
+                        g.config["Tracking"]["Hand"]["center_r_z"]])
 
         wrist_position_r = (x_r, y_r, z_r)
         wrist_position_r = np.array(wrist_position_r)
@@ -160,29 +119,21 @@ class GloveControllerSender:
         self.right_hand.position = wrist_position_r
         self.right_hand.rotation = quat_r
 
-        finger_l = tuple(
-            get_value(v, v_d)
-            for v, v_d in zip(g.data[f"Left{left_hand_type}Finger"], g.default_data[f"Left{left_hand_type}Finger"])
-        )
-        finger_r = tuple(
-            get_value(v, v_d)
-            for v, v_d in zip(g.data[f"Right{right_hand_type}Finger"], g.default_data[f"Right{right_hand_type}Finger"])
-        )
-        # print(f"Right{right_hand_type}Finger",finger_r)
-
+        finger_l = tuple(get_value(v, v_d) for v, v_d in zip(g.data[f"LeftHandFinger"], g.default_data[f"LeftHandFinger"]))
+        finger_r = tuple(get_value(v, v_d)for v, v_d in zip(g.data[f"RightHandFinger"], g.default_data[f"RightHandFinger"]))
         self.left_hand.finger = finger_l
         self.right_hand.finger = finger_r
 
     def update(self):
         self.handling_hand_data()
-        if not self.left_hand.enable and g.config["Tracking"]["Hand"]["enable_hand_down"] and not self.left_hand.force_enable:
+        if not self.left_hand.enable and g.config["Tracking"]["Hand"]["enable_hand_down"]:
             self.send_trigger(True, 0, 0)
             self.disable_hand(True)
         else:
             self.send_hand(True, self.left_hand)
             self.send_finger(True, self.left_hand)
 
-        if not self.right_hand.enable and g.config["Tracking"]["Hand"]["enable_hand_down"] and not self.right_hand.force_enable:
+        if not self.right_hand.enable and g.config["Tracking"]["Hand"]["enable_hand_down"]:
             self.send_trigger(False, 0, 0)
             self.disable_hand(False)
         else:

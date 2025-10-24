@@ -1,8 +1,6 @@
-import mediapipe as mp
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import cv2
-import joblib
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from copy import deepcopy
@@ -14,13 +12,11 @@ def draw_hand_landmarks(rgb_image, detection_result):
     FONT_SIZE = 1
     FONT_THICKNESS = 1
     HANDEDNESS_TEXT_COLOR = (88, 205, 54)  # vibrant green
-
     landmarks = detection_result.multi_hand_landmarks
     handedness = detection_result.multi_handedness
-
     if landmarks is None or handedness is None: return rgb_image
-
-    for idx, (hand, hand_landmarks) in enumerate(zip(handedness, landmarks)):
+    rgb_image = deepcopy(rgb_image)
+    for hand, hand_landmarks in zip(handedness, landmarks):
         hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
         hand_landmarks_proto.landmark.extend([
             landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z)
@@ -33,14 +29,12 @@ def draw_hand_landmarks(rgb_image, detection_result):
             solutions.drawing_styles.get_default_hand_landmarks_style(),
             solutions.drawing_styles.get_default_hand_connections_style(),
         )
-
         # Get the top left corner of the detected hand's bounding box.
         height, width, _ = rgb_image.shape
         x_coordinates = [landmark.x for landmark in hand_landmarks.landmark]
         y_coordinates = [landmark.y for landmark in hand_landmarks.landmark]
         text_x = int(min(x_coordinates) * width)
         text_y = int(min(y_coordinates) * height) - MARGIN
-
         # Draw handedness (left or right hand) on the image.
         cv2.putText(
             rgb_image,
@@ -52,9 +46,7 @@ def draw_hand_landmarks(rgb_image, detection_result):
             FONT_THICKNESS,
             cv2.LINE_AA,
         )
-
     return rgb_image
-
 
 def get_hand_pose(landmarks, reverse_flag=True):
     hand_pose = np.asarray([[l.x, l.y, l.z] for l in landmarks])
@@ -91,7 +83,6 @@ def finger_handling(hand_pose):
         norm_value = np.clip(norm_value, 0.1, 1.0)
         finger_curl[name] = round(norm_value,1)
         # finger_curl[name] = finger_mapper[name]["mapper"](round(norm_value,1))
-
     return finger_curl
 
 def compute_bounding_size(reference_kp):
@@ -107,7 +98,6 @@ def calculate_normalized_distance(kp1, kp2, reference_kp, points):
     avg_distance = np.mean(distances)
     width, height = compute_bounding_size(reference_kp)
     return avg_distance / max(width, height)
-
 
 prev_hands = {}  # {key: {'left': landmarks, 'right': landmarks}}
 def hand_is_changed(key, hand_name, hand_landmarks, change_points, change_threshold, update_flag=True):
@@ -133,7 +123,6 @@ def hand_is_changed(key, hand_name, hand_landmarks, change_points, change_thresh
                 change_points
             )
             swap_flag = other_dist < self_dist and (self_dist - other_dist) > g.config["Tracking"]["Hand"]["hand_swap_threshold"]
-
     changed = False
     norm_distance = 0
     if hand_name in prev_hands[key]:
@@ -192,7 +181,7 @@ def hand_pred_handling(backend, detection_result, hand_feature_model, hand_regre
                 _,_,_ = hand_is_changed("hand_change", hand_name, hand_landmarks,
                                                        [0,1,17],
                                                        0)
-            if hand.classification[0].score < g.config["Tracking"]["Hand"]["hand_confidence"] or (g.config["Tracking"]["LeftController"]["enable"] and hand_name=="Left") or (g.config["Tracking"]["RightController"]["enable"] and hand_name=="Right"):
+            if hand.classification[0].score < g.config["Tracking"]["Hand"]["hand_confidence"]:
                 continue
             if hand_name == "Left":
                 hand_detection_counts["Left"] += 2
@@ -257,9 +246,6 @@ def hand_pred_handling(backend, detection_result, hand_feature_model, hand_regre
                 backend.right_hand.change_flag=position_change_flag
 
             rotation_change_flag,_,_ = hand_is_changed("rotation",hand_name,hand_landmarks,g.config["Tracking"]["Hand"]["rotation_change_points"],g.config["Tracking"]["Hand"]["rotation_change_threshold"])
-            if not g.config["Tracking"]["Pose"]["enable"]:
-                if swap_flag and g.config["Tracking"]["Hand"]["enable_swap_strategy"]:
-                    continue
             z = hand_pose[0] - hand_pose[17]
             x = np.cross(hand_pose[1] - hand_pose[0], z)
             y = np.cross(z, x)
@@ -300,9 +286,8 @@ def hand_pred_handling(backend, detection_result, hand_feature_model, hand_regre
                         g.latest_data[74] = wrist_rot[1]
                         g.latest_data[75] = wrist_rot[2]
                     if position_change_flag:
-                        if not g.config["Tracking"]["Pose"]["enable"]:
-                            g.latest_data[70] = hand_position[0]
-                            g.latest_data[71] = hand_position[1]+g.config["Tracking"]["Hand"]["shift_l_y"]
+                        g.latest_data[70] = hand_position[0]
+                        g.latest_data[71] = hand_position[1]+g.config["Tracking"]["Hand"]["shift_l_y"]
                         g.latest_data[72] = hand_position[2]
 
                     g.latest_data[82] = finger_0
@@ -316,9 +301,8 @@ def hand_pred_handling(backend, detection_result, hand_feature_model, hand_regre
                         g.data["LeftHandRotation"][1]["v"] = wrist_rot[1]
                         g.data["LeftHandRotation"][2]["v"] = wrist_rot[2]
                     if position_change_flag:
-                        if not g.config["Tracking"]["Pose"]["enable"]:
-                            g.data["LeftHandPosition"][0]["v"] = hand_position[0]
-                            g.data["LeftHandPosition"][1]["v"] = hand_position[1]+g.config["Tracking"]["Hand"]["shift_l_y"]
+                        g.data["LeftHandPosition"][0]["v"] = hand_position[0]
+                        g.data["LeftHandPosition"][1]["v"] = hand_position[1]+g.config["Tracking"]["Hand"]["shift_l_y"]
                         g.data["LeftHandPosition"][2]["v"] = hand_position[2]
 
                     g.data["LeftHandFinger"][0]["v"] = finger_0
@@ -334,9 +318,8 @@ def hand_pred_handling(backend, detection_result, hand_feature_model, hand_regre
                         g.latest_data[80] = wrist_rot[1]
                         g.latest_data[81] = wrist_rot[2]
                     if position_change_flag:
-                        if not g.config["Tracking"]["Pose"]["enable"]:
-                            g.latest_data[76] = hand_position[0]
-                            g.latest_data[77] = hand_position[1]+g.config["Tracking"]["Hand"]["shift_r_y"]
+                        g.latest_data[76] = hand_position[0]
+                        g.latest_data[77] = hand_position[1]+g.config["Tracking"]["Hand"]["shift_r_y"]
                         g.latest_data[78] = hand_position[2]
 
                     g.latest_data[87] = finger_0
@@ -350,9 +333,8 @@ def hand_pred_handling(backend, detection_result, hand_feature_model, hand_regre
                         g.data["RightHandRotation"][1]["v"] = wrist_rot[1]
                         g.data["RightHandRotation"][2]["v"] = wrist_rot[2]
                     if position_change_flag:
-                        if not g.config["Tracking"]["Pose"]["enable"]:
-                            g.data["RightHandPosition"][0]["v"] = hand_position[0]
-                            g.data["RightHandPosition"][1]["v"] = hand_position[1]+g.config["Tracking"]["Hand"]["shift_r_y"]
+                        g.data["RightHandPosition"][0]["v"] = hand_position[0]
+                        g.data["RightHandPosition"][1]["v"] = hand_position[1]+g.config["Tracking"]["Hand"]["shift_r_y"]
                         g.data["RightHandPosition"][2]["v"] = hand_position[2]
 
                     g.data["RightHandFinger"][0]["v"] = finger_0
@@ -363,8 +345,7 @@ def hand_pred_handling(backend, detection_result, hand_feature_model, hand_regre
                 backend.right_hand.enable = True
 
     if hand_detection_counts["Left"] <= g.config["Tracking"]["Hand"]["hand_detection_lower_threshold"] and \
-            g.config["Tracking"]["Hand"]["enable_hand_auto_reset"] and not g.config["Tracking"]["LeftController"][
-        "enable"]:
+            g.config["Tracking"]["Hand"]["enable_hand_auto_reset"]:
         if g.smoothing_enabled:
             g.latest_data[73] = g.default_data["LeftHandRotation"][0]["v"]
             g.latest_data[74] = g.default_data["LeftHandRotation"][1]["v"]
@@ -385,8 +366,7 @@ def hand_pred_handling(backend, detection_result, hand_feature_model, hand_regre
             g.data["LeftHandFinger"] = deepcopy(g.default_data["LeftHandFinger"])
         backend.left_hand.enable = False
 
-    if hand_detection_counts["Right"] <= g.config["Tracking"]["Hand"]["hand_detection_lower_threshold"] and \
-            g.config["Tracking"]["Hand"]["enable_hand_auto_reset"] and not g.config["Tracking"]["RightController"]["enable"]:
+    if hand_detection_counts["Right"] <= g.config["Tracking"]["Hand"]["hand_detection_lower_threshold"] and g.config["Tracking"]["Hand"]["enable_hand_auto_reset"]:
         if g.smoothing_enabled:
             g.latest_data[79] = g.default_data["RightHandRotation"][0]["v"]
             g.latest_data[80] = g.default_data["RightHandRotation"][1]["v"]
@@ -406,14 +386,3 @@ def hand_pred_handling(backend, detection_result, hand_feature_model, hand_regre
             g.data["RightHandRotation"] = deepcopy(g.default_data["RightHandRotation"])
             g.data["RightHandFinger"] = deepcopy(g.default_data["RightHandFinger"])
         backend.right_hand.enable = False
-
-def initialize_hand():
-    mp_hands = mp.solutions.hands
-    return mp_hands.Hands(model_complexity=g.config["Model"]["Hand"]["model_complexity"], max_num_hands=2,
-                          min_detection_confidence=g.config["Model"]["Hand"]["min_hand_detection_confidence"],
-                          min_tracking_confidence=g.config["Model"]["Hand"]["min_tracking_confidence"])
-
-def initialize_hand_depth():
-    feature_model = joblib.load('./models/hand_feature_model.pkl')
-    hand_regression_model = joblib.load('./models/hand_regression_model.pkl')
-    return feature_model, hand_regression_model

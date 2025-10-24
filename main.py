@@ -20,16 +20,19 @@ from ctypes import windll
 
 from globals import settings
 from tracking import Tracker
+from pointerlocker import PointerLocker
 
 class VideoCaptureThread(QThread):
-    def __init__(self, tracker):
+    def __init__(self, tracker, pointerlocker):
         super().__init__()
         self.is_running = True
         self.tracker = tracker
+        self.pointerlocker = pointerlocker
     def run(self):
         from rtcam import CameraThread
         self.camera = CameraThread(settings.camera_url)
         self.camera.start()
+        self.pointerlocker.start()
         while self.is_running:
             if self.camera.frame is None:
                 time.sleep(0.1)
@@ -43,6 +46,7 @@ class VideoCaptureThread(QThread):
         self.camera.stop()
     def stop(self):
         self.is_running = False
+        self.pointerlocker.stop()
 
 class VideoWindow(QMainWindow):
     def __init__(self):
@@ -115,6 +119,7 @@ class VideoWindow(QMainWindow):
         layout.addWidget(self.toggle_button)
 
         self.tracker = Tracker()
+        self.pointerlocker = PointerLocker()
 
         self.video_thread = None
         self.toggle_camera()
@@ -225,7 +230,7 @@ class VideoWindow(QMainWindow):
         else:
             self.toggle_button.setText('Stop Tracking')
             self.toggle_button.setStyleSheet('QPushButton { background-color: red; color: white; }')
-            self.video_thread = VideoCaptureThread(self.tracker)
+            self.video_thread = VideoCaptureThread(self.tracker, self.pointerlocker)
             self.tracker.start()
             self.video_thread.start()
     def thread_stopped(self):

@@ -51,7 +51,7 @@ class VideoCaptureThread(QThread):
 class VideoWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        
+
         self.setWindowTitle(f'ExVR - Experience Virtual Reality')
 
         central_widget = QWidget(self)

@@ -25,7 +25,11 @@ class FaceTracker(TrackerBase):
         filtered = self.head_pos_filter.update(g.raw.head.position.tuple)
         diff = (filtered - g.smoothed.head.position.array) * dt * 20
         g.smoothed.head.position.update(*(g.smoothed.head.position.array + diff))
+
         self.head_rot_filter.predict(dt)
         filtered = self.head_rot_filter.update(g.raw.head.rotation.tuple, is_rotation=True)
         diff = np.array(list(starmap(angle_diff, zip(filtered, g.smoothed.head.rotation.array)))) * dt * 50
         g.smoothed.head.rotation.update(*(g.smoothed.head.rotation.array + diff))
+
+        diff = (g.raw.face_pos.array - g.smoothed.face_pos.array) * dt * 100
+        g.smoothed.face_pos.update(*(g.smoothed.face_pos.array + diff))

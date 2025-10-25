@@ -1,12 +1,5 @@
 {
     "Parameters": {
-        "OtherBlendShapes": {
-            "key": "BlendShapes",
-            "is_rotation": false,
-            "indices": [],
-            "shifting": 0,
-            "dt_multiplier": 50
-        },
         "EyeBlink": {
             "key": "BlendShapes",
             "is_rotation": false,

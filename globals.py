@@ -21,16 +21,20 @@ class settings:
 
 class raw:
     head = TrackingUnit(Position(0,0,0), Rotation(0,0,0))
+    face_pos = Position(0,0,0)
     mouse = Rotation(0,0,0)
+    left_hand = TrackingUnit(Position(0,0,0), Rotation(0,0,0), BlendShapeGroup([0,0,0,0,0]))
+    right_hand = TrackingUnit(Position(0,0,0), Rotation(0,0,0), BlendShapeGroup([0,0,0,0,0]))
 
 class smoothed:
     head = TrackingUnit(Position(0,0,0), Rotation(0,0,0))
+    face_pos = Position(0,0,0)
+    left_hand = TrackingUnit(Position(0,0,0), Rotation(0,0,0), BlendShapeGroup([0,0,0,0,0]))
+    right_hand = TrackingUnit(Position(0,0,0), Rotation(0,0,0), BlendShapeGroup([0,0,0,0,0]))
 
 config = json.load(open('./settings/config.json'))
 data = json.load(open('./settings/data.json'))
 default_data = deepcopy(data)
-latest_data = [0.0] * (64 + 6 + 12 + 10 + 12 + 10 + 3 + 2)
 
-smoothing_enabled = True
 face_landmarks = None
 hand_landmarks = None

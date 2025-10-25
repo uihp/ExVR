@@ -4,6 +4,8 @@ import globals as g
 from scipy.spatial.transform import Rotation as R
 import numpy as np
 
+from classes import *
+
 def get_value(value, value_d):
     if value["e"]:
         return value["v"] + value["s"]
@@ -24,7 +26,6 @@ class Transform:
     rotation: tuple  # (x, y, z, w)
     finger: tuple  # (0,1,2,3,4)
     enable: bool
-    force_enable: bool
     change_flag: bool
 
 # GloveControllerSender equivalent in Python
@@ -33,22 +34,19 @@ class GloveControllerSender:
         # Initialize OSC client
         self.client = udp_client.SimpleUDPClient(osc_ip, osc_port)
 
-        self.left_hand = Transform((0, 0, 0), (0, 0, 0, 1), (1.0, 1.0, 1.0, 1.0, 1.0), False, False, True)
-        self.right_hand = Transform((0, 0, 0), (0, 0, 0, 1), (1.0, 1.0, 1.0, 1.0, 1.0), False, False, True)
+        self.left_hand = Transform((0, 0, 0), (0, 0, 0, 1), (1.0, 1.0, 1.0, 1.0, 1.0), False, True)
+        self.right_hand = Transform((0, 0, 0), (0, 0, 0, 1), (1.0, 1.0, 1.0, 1.0, 1.0), False, True)
         self.vmt_init()
 
     def send_hand(self, is_left_hand, target: Transform):
+        from pprint import pp
+        #pp(g.smoothed.left_hand.rotation.tuple) # (-59.83069652593504, 77.7619216071455, -130.3005959491607)
         message = [
             1 if is_left_hand else 2,  # lefthand ? 1 : 2
             5 if is_left_hand else 6,  # enable
             0.0,  # timeoffset
-            target.position[0],
-            target.position[1],
-            target.position[2],  # -0.25,
-            target.rotation[0],
-            target.rotation[1],
-            target.rotation[2],
-            target.rotation[3],
+            *target.position,
+            *target.rotation,
             "HMD",  # serial
         ]
         self.client.send_message("/VMT/Joint/Driver", message)
@@ -81,51 +79,25 @@ class GloveControllerSender:
             [1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, -0.76, 0.0, 0.0, 1.0, 1.0],
         )
 
-    def handling_hand_data(self):
-        yaw_l = get_value(g.data[f"LeftHandRotation"][0], g.default_data[f"LeftHandRotation"][0])
-        pitch_l = get_value(g.data[f"LeftHandRotation"][1], g.default_data[f"LeftHandRotation"][1])
-        roll_l = get_value(g.data[f"LeftHandRotation"][2], g.default_data[f"LeftHandRotation"][2])
-        x_l = get_value(g.data[f"LeftHandPosition"][0], g.default_data[f"LeftHandPosition"][0])
-        y_l = get_value(g.data[f"LeftHandPosition"][1], g.default_data[f"LeftHandPosition"][1])
-        z_l = get_value(g.data[f"LeftHandPosition"][2], g.default_data[f"LeftHandPosition"][2])
-        quat_l = R.from_euler("xyz", [yaw_l, pitch_l, roll_l], degrees=True).as_quat()
-        matrix_l=R.from_euler("xyz", [yaw_l, pitch_l, roll_l], degrees=True).as_matrix()
-        yaw_r = get_value(g.data[f"RightHandRotation"][0], g.default_data[f"RightHandRotation"][0])
-        pitch_r = get_value(g.data[f"RightHandRotation"][1], g.default_data[f"RightHandRotation"][1])
-        roll_r = get_value(g.data[f"RightHandRotation"][2], g.default_data[f"RightHandRotation"][2])
-        x_r = get_value(g.data[f"RightHandPosition"][0], g.default_data[f"RightHandPosition"][0])
-        y_r = get_value(g.data[f"RightHandPosition"][1], g.default_data[f"RightHandPosition"][1])
-        z_r = get_value(g.data[f"RightHandPosition"][2], g.default_data[f"RightHandPosition"][2])
-        quat_r = R.from_euler("xyz", [yaw_r, pitch_r, roll_r], degrees=True).as_quat()
-        matrix_r=R.from_euler("xyz", [yaw_r, pitch_r, roll_r], degrees=True).as_matrix()
-
-        center_l = np.array([g.config["Tracking"]["Hand"]["center_l_x"], g.config["Tracking"]["Hand"]["center_l_y"],
-                        g.config["Tracking"]["Hand"]["center_l_z"]])
-
-        wrist_position_l = (x_l, y_l, z_l)
-        wrist_position_l = np.array(wrist_position_l)
-        wrist_position_l = matrix_l @ center_l + wrist_position_l
-        wrist_position_l=(wrist_position_l[0], wrist_position_l[1] ,wrist_position_l[2])
-        self.left_hand.position = wrist_position_l
-        self.left_hand.rotation = quat_l
-
-        center_r = np.array([g.config["Tracking"]["Hand"]["center_r_x"], g.config["Tracking"]["Hand"]["center_r_y"],
-                        g.config["Tracking"]["Hand"]["center_r_z"]])
-
-        wrist_position_r = (x_r, y_r, z_r)
-        wrist_position_r = np.array(wrist_position_r)
-        wrist_position_r = matrix_r @ center_r + wrist_position_r
-        wrist_position_r=(wrist_position_r[0], wrist_position_r[1] ,wrist_position_r[2])
-        self.right_hand.position = wrist_position_r
-        self.right_hand.rotation = quat_r
-
-        finger_l = tuple(get_value(v, v_d) for v, v_d in zip(g.data[f"LeftHandFinger"], g.default_data[f"LeftHandFinger"]))
-        finger_r = tuple(get_value(v, v_d)for v, v_d in zip(g.data[f"RightHandFinger"], g.default_data[f"RightHandFinger"]))
-        self.left_hand.finger = finger_l
-        self.right_hand.finger = finger_r
-
     def update(self):
-        self.handling_hand_data()
+        eular = g.smoothed.left_hand.rotation.array
+        eular += [75, 0, -15]
+        quat = R.from_euler("xyz", eular, degrees=True).as_quat()
+        matrix = R.from_euler("xyz", eular, degrees=True).as_matrix()
+        center = np.array([0.05, -0.07, -0.12])
+        self.left_hand.position = matrix @ center + g.smoothed.left_hand.position.array
+        self.left_hand.rotation = quat
+        self.left_hand.finger = g.smoothed.left_hand.blendshapes.tuple
+
+        eular = g.smoothed.right_hand.rotation.array
+        eular += [75, 0, -15]
+        quat = R.from_euler("xyz", eular, degrees=True).as_quat()
+        matrix = R.from_euler("xyz", eular, degrees=True).as_matrix()
+        center = np.array([-0.05, -0.07, -0.12])
+        self.right_hand.position = matrix @ center + g.smoothed.right_hand.position.array
+        self.right_hand.rotation = quat
+        self.right_hand.finger = g.smoothed.right_hand.blendshapes.tuple
+
         if not self.left_hand.enable and g.config["Tracking"]["Hand"]["enable_hand_down"]:
             self.send_trigger(True, 0, 0)
             self.disable_hand(True)

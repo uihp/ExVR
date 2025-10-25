@@ -80,7 +80,4 @@ class Detector:
                 -np.arctan2(mat[1, 0], mat[0, 0])
                 * 180 / math.pi
                 * g.settings.roll_scalar))
-
-        g.latest_data[114] = g.face_landmarks[4].x
-        g.latest_data[115] = g.face_landmarks[4].y
-        g.latest_data[116] = g.face_landmarks[4].z
+        g.raw.face_pos.update(g.face_landmarks[4].x, g.face_landmarks[4].y, g.face_landmarks[4].z)

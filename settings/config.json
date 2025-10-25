@@ -32,8 +32,6 @@
             "center_r_x": -0.05,
             "center_r_y": -0.07,
             "center_r_z": -0.12,
-            "shift_l_y": 0.0,
-            "shift_r_y": 0.0,
             "x_scalar": 1.1,
             "y_scalar": 1.0,
             "z_scalar": 0.55,

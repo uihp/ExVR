@@ -1,7 +1,7 @@
 import mediapipe as mp
 from mediapipe.framework.formats import landmark_pb2
 import numpy as np
-from .face import Detector
+from .detector import Detector
 from .backend import TrackerBackend
 from ..base import TrackerBase
 from ..smoothing import VectorKalmanFilter, angle_diff

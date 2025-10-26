@@ -5,7 +5,7 @@ import numpy as np
 import joblib
 from pynput import keyboard
 from itertools import starmap
-from .hand import hand_pred_handling
+from .process import hand_pred_handling
 from .backend import GloveControllerSender
 from ..smoothing import VectorKalmanFilter, angle_diff
 from ..base import TrackerBase

@@ -9,6 +9,7 @@ class BackendBase:
 
 class TrackerBase:
     backend: BackendBase
+    listeners = []
     def __init__(self):
         self.is_running = False
         self.refresh_rate = 1 / 60
@@ -32,7 +33,9 @@ class TrackerBase:
         self.smoothing_thread.start()
         self.sending_thread = Thread(target=self.__sending_thread, daemon=True)
         self.sending_thread.start()
+        for listener in self.listeners: listener.start()
     def stop(self):
         self.is_running = False
         self.smoothing_thread.join()
         self.sending_thread.join()
+        for listener in self.listeners: listener.stop()

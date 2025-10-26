@@ -1,6 +1,7 @@
 import mediapipe as mp
 import numpy as np
 import joblib
+from pynput import keyboard
 from itertools import starmap
 from .hand import hand_pred_handling, draw_hand_landmarks
 from .backend import GloveControllerSender
@@ -14,16 +15,20 @@ class HandTracker(TrackerBase):
         self.detector = mp.solutions.hands.Hands(model_complexity=1, max_num_hands=2, min_detection_confidence=0.8, min_tracking_confidence=0.4)
         self.feature_model = joblib.load('./models/hand_feature_model.pkl')
         self.regression_model = joblib.load('./models/hand_regression_model.pkl')
-        self.backend = GloveControllerSender(osc_ip='127.0.0.1', osc_port=39570)
+        self.backend = GloveControllerSender()
         self.left_hand_pos_filter = VectorKalmanFilter(0.01, 0.03, 3)
         self.left_hand_rot_filter = VectorKalmanFilter(0.01, 0.03, 3)
         self.left_hand_finger_filter = VectorKalmanFilter(0.005, 0.03, 5)
         self.right_hand_pos_filter = VectorKalmanFilter(0.01, 0.03, 3)
         self.right_hand_rot_filter = VectorKalmanFilter(0.01, 0.03, 3)
         self.right_hand_finger_filter = VectorKalmanFilter(0.005, 0.03, 5)
+        self.listeners = [keyboard.Listener(on_release=self.on_keyboard_release)]
+    def on_keyboard_release(self, key):
+        if key != keyboard.KeyCode.from_char('`'): return
+        self.backend.pointer_mode = not self.backend.pointer_mode
     def process_frame(self, image_rgb):
         hand_result = self.detector.process(image_rgb)
-        hand_pred_handling(self.backend, hand_result, self.feature_model, self.regression_model)
+        hand_pred_handling(hand_result, self.feature_model, self.regression_model)
         return hand_result
     def draw_landmarks(self, image_rgb, hand_result):
         image_marked = draw_hand_landmarks(image_rgb, hand_result)

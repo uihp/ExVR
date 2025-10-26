@@ -1,31 +1,6 @@
 {
     "Tracking": {
-        "Head": {
-            "enable": true,
-            "x_scalar": 1.0,
-            "y_scalar": 1.0,
-            "z_scalar": 1.0,
-            "yaw_rotation_scalar": 1.0,
-            "pitch_rotation_scalar": 1.0,
-            "roll_rotation_scalar": 1.0
-        },
-        "Face": {
-            "enable": true,
-            "block": true,
-            "face_block_threshold": 0.1,
-            "position_block_threshold": 0.0,
-            "rotation_block_threshold": 0.0
-        },
-        "Tongue": {
-            "enable": true,
-            "tongue_confidence": 0.9,
-            "tongue_threshold": 6,
-            "tongue_x_scalar": 2.0,
-            "tongue_y_scalar": 3.0,
-            "mouth_close_threshold": 0.1
-        },
         "Hand": {
-            "enable": true,
             "center_l_x": 0.05,
             "center_l_y": -0.07,
             "center_l_z": -0.12,
@@ -62,7 +37,6 @@
             "only_front": true
         },
         "Finger": {
-            "enable": true,
             "thumb_base": [
                 0,
                 2

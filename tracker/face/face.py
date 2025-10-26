@@ -66,7 +66,7 @@ class Detector:
         g.raw.head.position.update(
             x = -mat[0][3] * g.settings.x_scalar,
             y = -mat[2][3] * g.settings.z_scalar,
-            z = mat[1][3] * g.settings.y_scalar)
+            z = mat[1][3] * g.settings.y_scalar + 50)
         g.raw.head.rotation.update(
             yaw = (
                 -np.arctan2(-mat[2, 0], np.sqrt(mat[2, 1] ** 2 + mat[2, 2] ** 2))

@@ -1,5 +1,6 @@
 import json
 from copy import deepcopy
+from pythonosc import udp_client
 from classes import *
 
 class settings:
@@ -20,7 +21,7 @@ class settings:
     def toggle(cls, key): setattr(cls, key, not getattr(cls, key))
 
 class raw:
-    head = TrackingUnit(Position(0,0,0), Rotation(0,0,0))
+    head = TrackingUnit(Position(0,0,50), Rotation(0,0,0))
     face_pos = Position(0,0,0)
     mouse = Rotation(0,0,0)
     left_hand = TrackingUnit(Position(0,0,0), Rotation(0,0,0), BlendShapeGroup([0,0,0,0,0]))
@@ -32,9 +33,9 @@ class smoothed:
     left_hand = TrackingUnit(Position(0,0,0), Rotation(0,0,0), BlendShapeGroup([0,0,0,0,0]))
     right_hand = TrackingUnit(Position(0,0,0), Rotation(0,0,0), BlendShapeGroup([0,0,0,0,0]))
 
-config = json.load(open('./settings/config.json'))
-data = json.load(open('./settings/data.json'))
-default_data = deepcopy(data)
+OSC = udp_client.SimpleUDPClient('127.0.0.1', 39570)
+
+config = json.load(open('config.json'))
 
 face_landmarks = None
-hand_landmarks = None
+handedness = [False, False]

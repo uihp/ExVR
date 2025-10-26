@@ -30,13 +30,13 @@ class GloveControllerSender:
         self.right_hand.rotation.update(*quat)
         self.right_hand.blendshapes.update(*g.smoothed.right_hand.blendshapes.tuple)
 
-        if g.handedness[0] or self.pointer_mode:
+        if g.settings.handedness[0] or self.pointer_mode:
             OSC.send_message("/VMT/Joint/Driver", [1, 5, 0.0, *self.left_hand.position.tuple, *self.left_hand.rotation.tuple, 'HMD'])
             for i, e in enumerate(self.left_hand.blendshapes.tuple):
                 OSC.send_message("/VMT/Skeleton/Scalar", [1, i+1, e, 0, 0])
             OSC.send_message("/VMT/Skeleton/Apply", [1, 0.0])
         else: OSC.send_message("/VMT/Room/Unity", [1, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
-        if g.handedness[1]:
+        if g.settings.handedness[1]:
             OSC.send_message("/VMT/Joint/Driver", [2, 6, 0.0, *self.right_hand.position.tuple, *self.right_hand.rotation.tuple, 'HMD'])
             for i, e in enumerate(self.right_hand.blendshapes.tuple):
                 OSC.send_message("/VMT/Skeleton/Scalar", [2, i+1, e, 0, 0])

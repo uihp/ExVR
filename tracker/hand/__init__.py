@@ -1,9 +1,11 @@
 import mediapipe as mp
+from mediapipe.framework.formats import landmark_pb2
+import cv2
 import numpy as np
 import joblib
 from pynput import keyboard
 from itertools import starmap
-from .hand import hand_pred_handling, draw_hand_landmarks
+from .hand import hand_pred_handling
 from .backend import GloveControllerSender
 from ..smoothing import VectorKalmanFilter, angle_diff
 from ..base import TrackerBase
@@ -30,9 +32,43 @@ class HandTracker(TrackerBase):
         hand_result = self.detector.process(image_rgb)
         hand_pred_handling(hand_result, self.feature_model, self.regression_model)
         return hand_result
-    def draw_landmarks(self, image_rgb, hand_result):
-        image_marked = draw_hand_landmarks(image_rgb, hand_result)
-        return image_marked
+    @staticmethod
+    def draw_landmarks(image_rgb, detection_result):
+        MARGIN = 10 # pixels
+        FONT_SIZE = 1
+        FONT_THICKNESS = 1
+        HANDEDNESS_TEXT_COLOR = (88, 205, 54) # vibrant green
+        landmarks = detection_result.multi_hand_landmarks
+        handedness = detection_result.multi_handedness
+        if landmarks is None or handedness is None: return image_rgb
+        for hand, hand_landmarks in zip(handedness, landmarks):
+            hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+            hand_landmarks_proto.landmark.extend([
+                landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z)
+                for landmark in hand_landmarks.landmark # Access through .landmark
+            ])
+            mp.solutions.drawing_utils.draw_landmarks(
+                image_rgb,
+                hand_landmarks_proto,
+                mp.solutions.hands.HAND_CONNECTIONS,
+                mp.solutions.drawing_styles.get_default_hand_landmarks_style(),
+                mp.solutions.drawing_styles.get_default_hand_connections_style())
+            # Get the top left corner of the detected hand's bounding box.
+            height, width, _ = image_rgb.shape
+            x_coordinates = [landmark.x for landmark in hand_landmarks.landmark]
+            y_coordinates = [landmark.y for landmark in hand_landmarks.landmark]
+            text_x = int(min(x_coordinates) * width)
+            text_y = int(min(y_coordinates) * height) - MARGIN
+            # Draw handedness (left or right hand) on the image.
+            cv2.putText(
+                image_rgb,
+                f'{'Left' if hand.classification[0].label == 'Right' else 'Right'}', # Handedness label
+                (text_x, text_y),
+                cv2.FONT_HERSHEY_DUPLEX,
+                FONT_SIZE,
+                HANDEDNESS_TEXT_COLOR,
+                FONT_THICKNESS,
+                cv2.LINE_AA)
     def smooth_frame(self, dt):
         self.left_hand_pos_filter.predict(dt)
         filtered = self.left_hand_pos_filter.update(g.raw.left_hand.position.tuple)

@@ -1,42 +1,9 @@
-from mediapipe.framework.formats import landmark_pb2
-from mediapipe import solutions
 import mediapipe as mp
 import numpy as np
 import math
 import cv2
-from copy import deepcopy
 
 import globals as g
-
-def draw_face_landmarks(rgb_image):
-    if g.face_landmarks is None: return rgb_image
-    rgb_image = deepcopy(rgb_image)
-    face_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
-    face_landmarks_proto.landmark.extend([landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in g.face_landmarks])
-
-    solutions.drawing_utils.draw_landmarks(
-        image=rgb_image,
-        landmark_list=face_landmarks_proto,
-        connections=mp.solutions.face_mesh.FACEMESH_TESSELATION,
-        landmark_drawing_spec=None,
-        connection_drawing_spec=mp.solutions.drawing_styles
-        .get_default_face_mesh_tesselation_style())
-    solutions.drawing_utils.draw_landmarks(
-        image=rgb_image,
-        landmark_list=face_landmarks_proto,
-        connections=mp.solutions.face_mesh.FACEMESH_CONTOURS,
-        landmark_drawing_spec=None,
-        connection_drawing_spec=mp.solutions.drawing_styles
-        .get_default_face_mesh_contours_style())
-    solutions.drawing_utils.draw_landmarks(
-        image=rgb_image,
-        landmark_list=face_landmarks_proto,
-        connections=mp.solutions.face_mesh.FACEMESH_IRISES,
-        landmark_drawing_spec=None,
-        connection_drawing_spec=mp.solutions.drawing_styles
-        .get_default_face_mesh_iris_connections_style())
-
-    return rgb_image
 
 class Detector:
     def __init__(self):
@@ -51,14 +18,16 @@ class Detector:
             running_mode=mp.tasks.vision.RunningMode.LIVE_STREAM,
             result_callback=self.__result_callback))
         self.start_time = cv2.getTickCount()
+        self.landmarks = None
     def detect(self, mp_image):
         timestamp_ms = int((cv2.getTickCount() - self.start_time) * 1000 / cv2.getTickFrequency())
         self.landmarker.detect_async(mp_image, timestamp_ms)
+        return self.landmarks
     def __result_callback(self, detection_result, output_image, timestamp_ms):
         if not detection_result.face_landmarks:
-            g.face_landmarks = None
+            self.landmarks = None
             return
-        g.face_landmarks, = detection_result.face_landmarks
+        self.landmarks, = detection_result.face_landmarks
         trans_matrix, = detection_result.facial_transformation_matrixes
         self.__handle_result(trans_matrix)
     def __handle_result(self, trans_matrix):
@@ -80,4 +49,4 @@ class Detector:
                 -np.arctan2(mat[1, 0], mat[0, 0])
                 * 180 / math.pi
                 * g.settings.roll_scalar))
-        g.raw.face_pos.update(g.face_landmarks[4].x, g.face_landmarks[4].y, g.face_landmarks[4].z)
+        g.raw.face_pos.update(self.landmarks[4].x, self.landmarks[4].y, self.landmarks[4].z)

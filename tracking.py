@@ -18,8 +18,10 @@ class Tracker:
         self.hand_tracker.draw_landmarks(marked_image_rgb, result)
         return marked_image_rgb
     def start(self):
+        self.pose_tracker.start()
         self.face_tracker.start()
         self.hand_tracker.start()
     def stop(self):
+        self.pose_tracker.stop()
         self.face_tracker.stop()
         self.hand_tracker.stop()

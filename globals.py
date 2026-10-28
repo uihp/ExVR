@@ -11,6 +11,7 @@ class settings:
     only_ingame = False
     only_ingame_game = ''
     handedness = [False, False]
+    full_body = False
     # scalars & shiftings
     x_scalar = 1
     y_scalar = 1
@@ -31,9 +32,11 @@ class raw:
     mouse = Rotation(0,0,0)
     left_hand = TrackingUnit(Position(0,0,0), Rotation(0,0,0), BlendShapeGroup([0,0,0,0,0]))
     right_hand = TrackingUnit(Position(0,0,0), Rotation(0,0,0), BlendShapeGroup([0,0,0,0,0]))
+    pose = [Position(0,0,0) for _ in range(33)]
 
 class smoothed:
     head = TrackingUnit(Position(0,0,0), Rotation(0,0,0))
     face_pos = Position(0,0,0)
     left_hand = TrackingUnit(Position(0,0,0), Rotation(0,0,0), BlendShapeGroup([0,0,0,0,0]))
     right_hand = TrackingUnit(Position(0,0,0), Rotation(0,0,0), BlendShapeGroup([0,0,0,0,0]))
+    pose = [Position(0,0,0) for _ in range(33)]

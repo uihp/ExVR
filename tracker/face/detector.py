@@ -28,14 +28,15 @@ class Detector:
             self.landmarks = None
             return
         self.landmarks, = detection_result.face_landmarks
-        trans_matrix, = detection_result.facial_transformation_matrixes
-        self.__handle_result(trans_matrix)
-    def __handle_result(self, trans_matrix):
-        mat = np.array(trans_matrix)
-        g.raw.head.position.update(
-            x = -mat[0][3] * g.settings.x_scalar,
-            y = -mat[2][3] * g.settings.z_scalar,
-            z = mat[1][3] * g.settings.y_scalar + 50)
+        matrix, = detection_result.facial_transformation_matrixes
+        self.__handle_matrix(matrix)
+    def __handle_matrix(self, matrix):
+        mat = np.array(matrix)
+        if not g.settings.full_body:
+            g.raw.head.position.update(
+                x = -mat[0][3] * g.settings.x_scalar,
+                y = -mat[2][3] * g.settings.z_scalar,
+                z = mat[1][3] * g.settings.y_scalar + 50)
         g.raw.head.rotation.update(
             yaw = (
                 -np.arctan2(-mat[2, 0], np.sqrt(mat[2, 1] ** 2 + mat[2, 2] ** 2))

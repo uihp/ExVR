@@ -1,12 +1,11 @@
 import time
 import threading
 import pygetwindow as gw
-from pythonosc import udp_client
-from pynput import mouse
-
+from pynput import mouse, keyboard
+from globals import OSC
 import globals as g
 
-OSC = udp_client.SimpleUDPClient('127.0.0.1', 39570)
+kb = keyboard.Controller()
 
 class PointerLocker:
     def __init__(self):
@@ -20,9 +19,10 @@ class PointerLocker:
         g.raw.mouse.yaw = -(self.x / self.target_window.width * 75) % 360
         g.raw.mouse.pitch = -(self.y / self.target_window.height * 75) % 360
     def on_mouse_click(self, x, y, button, pressed):
+        if button is mouse.Button.right: return (kb.press if pressed else kb.release)(keyboard.Key.esc)
         if button is not mouse.Button.left: return
         message = [1, 0, 0.0, int(pressed)]
-        OSC.send_message("/VMT/Input/Trigger/Click", message)
+        OSC.send_message('/VMT/Input/Trigger/Click', message)
     def thread_target(self):
         window_title = 'VRChat' if 1 else 'VR 视图'
         while self.is_running and self.target_window is None:
